@@ -25,9 +25,11 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
     isOpen: boolean;
     title: string;
     message: string;
-    onConfirm: () => void;
+    onConfirm: (text?: string) => void;
     iconType: 'warning' | 'ban' | 'trash';
+    isEditable?: boolean;
   }>({ isOpen: false, title: "", message: "", onConfirm: () => {}, iconType: 'warning' });
+  const [confirmText, setConfirmText] = useState("");
 
   // Monitoring Tab State
   const [posts, setPosts] = useState<any[]>([]);
@@ -148,12 +150,15 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
   const sendWarning = () => {
     if (!selectedUser?.id) return;
     
+    setConfirmText(`【システム警告】\nあなたのアカウントに対して複数回の通報が確認されました。\n利用規約に違反する行為が継続した場合、アカウントを停止する可能性がありますのでご注意ください。`);
+    
     setGenericConfirm({
       isOpen: true,
       title: "警告の確認",
-      message: `${selectedUser.name || 'このユーザー'}に警告メッセージを送信しますか？`,
+      message: `${selectedUser.name || 'このユーザー'}に以下の警告メッセージを送信しますか？`,
       iconType: 'warning',
-      onConfirm: async () => {
+      isEditable: true,
+      onConfirm: async (editedText) => {
         setGenericConfirm(prev => ({ ...prev, isOpen: false }));
         setIsResetting(true); // Re-using resetting state for loading
         const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -164,12 +169,10 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
            return;
         }
 
-        const warningMessage = `【システム警告】\nあなたのアカウントに対して複数回の通報が確認されました。\n利用規約に違反する行為が継続した場合、アカウントを停止する可能性がありますのでご注意ください。`;
-        
         const { error } = await supabase.from('sns_messages').insert({
            sender_id: currentUser.id,
            receiver_id: selectedUser.id,
-           content: warningMessage,
+           content: editedText,
            is_read: false
         });
 
@@ -684,17 +687,25 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
       {/* Generic Confirm Modal */}
       {genericConfirm.isOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm border border-black shadow-2xl relative overflow-hidden">
-            <div className="p-6 text-center">
+          <div className="bg-white w-full max-w-sm border border-black shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 text-center flex-1 overflow-y-auto">
               <h2 className="text-sm font-bold tracking-widest text-[#E02424] mb-3 flex items-center justify-center gap-2">
                 {genericConfirm.iconType === 'trash' ? <Trash2 size={18} className="stroke-[2]" /> : null}
                 {genericConfirm.title}
               </h2>
-              <p className="text-xs text-[#333] leading-relaxed tracking-widest mb-6 whitespace-pre-wrap">
+              <p className="text-xs text-[#333] leading-relaxed tracking-widest mb-4 whitespace-pre-wrap">
                 {genericConfirm.message}
               </p>
               
-              <div className="flex items-center gap-3">
+              {genericConfirm.isEditable && (
+                <textarea 
+                   value={confirmText}
+                   onChange={e => setConfirmText(e.target.value)}
+                   className="w-full text-left text-xs leading-relaxed border border-[#E5E5E5] p-3 mb-4 outline-none focus:border-black min-h-[150px] resize-y"
+                />
+              )}
+              
+              <div className="flex items-center gap-3 mt-2">
                 <button 
                   onClick={() => setGenericConfirm(prev => ({ ...prev, isOpen: false }))}
                   className="flex-1 py-3 bg-[#F9F9F9] border border-[#E5E5E5] text-[#777] text-[11px] font-bold tracking-widest hover:bg-[#EEEEEE] transition-colors"
@@ -702,7 +713,7 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
                   キャンセル
                 </button>
                 <button 
-                  onClick={genericConfirm.onConfirm}
+                  onClick={() => genericConfirm.onConfirm(genericConfirm.isEditable ? confirmText : undefined)}
                   className="flex-1 py-3 bg-[#E02424] text-white text-[11px] font-bold tracking-widest shadow-md hover:bg-[#C81E1E] transition-colors"
                 >
                   OK
