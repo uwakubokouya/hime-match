@@ -3,7 +3,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/providers/UserProvider';
-import { ChevronLeft, Send, ImagePlus, User, Trash2, Flag, X } from 'lucide-react';
+import { ChevronLeft, Send, ImagePlus, User, Trash2, Flag, X, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +21,9 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [reportCategory, setReportCategory] = useState("");
   const [reportDetails, setReportDetails] = useState("");
+  const [reportContext, setReportContext] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
   const reportOptions = [
     "暴言・誹謗中傷",
     "荒らし・スパム",
@@ -30,6 +32,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   ];
 
   const isVipOrManagement = user?.is_vip || ['system', 'admin', 'management'].includes(user?.role || '');
+  const isAdmin = ['system', 'admin', 'management'].includes(user?.role || '');
 
   useEffect(() => {
     if (user === undefined) return; // Wait for user context
@@ -39,6 +42,12 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     }
     
     fetchThreadData();
+    
+    const fetchFav = async () => {
+        const { data } = await supabase.from('sns_board_favorites').select('thread_id').eq('user_id', user.id).eq('thread_id', id).single();
+        if (data) setIsFavorited(true);
+    };
+    fetchFav();
     
     const channel = supabase.channel(`thread_${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sns_board_posts', filter: `thread_id=eq.${id}` }, (payload) => {
@@ -161,6 +170,38 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     return `${m}/${day} ${h}:${min}`;
   };
 
+  const toggleFavorite = async () => {
+      if (!user) return;
+      const nextFav = !isFavorited;
+      setIsFavorited(nextFav);
+      if (nextFav) {
+          await supabase.from('sns_board_favorites').insert({ user_id: user.id, thread_id: id });
+      } else {
+          await supabase.from('sns_board_favorites').delete().eq('user_id', user.id).eq('thread_id', id);
+      }
+  };
+
+  const handleReportThread = () => {
+      if (!thread?.created_by) {
+          alert("スレッド作成者が不明なため通報できません。");
+          return;
+      }
+      setReportTargetId(thread.created_by);
+      setReportContext(`掲示板スレッド「${thread.title}」(ID: ${id})の通報`);
+      setShowReportModal(true);
+  };
+
+  const handleDeleteThread = async () => {
+      if (!window.confirm("このスレッドを削除しますか？\n（復元はできません）")) return;
+      
+      const { error } = await supabase.from('sns_board_threads').delete().eq('id', id);
+      if (!error) {
+          router.replace('/board');
+      } else {
+          alert("削除に失敗しました。");
+      }
+  };
+
   if (isLoading || !user) {
       return (
           <div className="min-h-screen bg-[#F9F9F9] flex flex-col items-center justify-center">
@@ -173,14 +214,27 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     <div className="min-h-screen bg-[#E5E5E5] flex flex-col max-w-md mx-auto">
       {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-40 border-b border-[#E5E5E5]">
-        <div className="flex items-center p-4 relative">
-          <Link href="/board" className="p-2 -ml-2 text-black hover:text-[#777777] transition-colors absolute left-4 z-10">
+        <div className="flex items-center justify-between p-2 relative min-h-[56px]">
+          <Link href="/board" className="p-2 text-black hover:text-[#777777] transition-colors z-10 shrink-0">
             <ChevronLeft size={24} className="stroke-[1.5]" />
           </Link>
-          <div className="flex-1 text-center px-10">
+          <div className="flex-1 text-center px-2 overflow-hidden">
             <h1 className="font-bold text-sm tracking-widest text-black truncate">
               {thread?.title || "読み込み中..."}
             </h1>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+             <button onClick={toggleFavorite} className="p-2 text-[#E5E5E5] hover:text-[#E02424] transition-colors">
+                 <Star size={18} className={isFavorited ? 'fill-[#E02424] text-[#E02424]' : 'text-[#CCC]'} />
+             </button>
+             <button onClick={handleReportThread} className="p-2 text-[#777777] hover:text-[#E02424] transition-colors">
+                 <Flag size={18} className="stroke-[1.5]" />
+             </button>
+             {isAdmin && (
+                 <button onClick={handleDeleteThread} className="p-2 text-[#777777] hover:text-[#E02424] transition-colors">
+                     <Trash2 size={18} className="stroke-[1.5]" />
+                 </button>
+             )}
           </div>
         </div>
       </div>
@@ -241,6 +295,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                          <button 
                             onClick={() => {
                                 setReportTargetId(post.user_id);
+                                setReportContext(`掲示板の投稿(No.${postNumber})の通報`);
                                 setShowReportModal(true);
                             }}
                             className="text-[10px] text-[#999999] hover:text-[#E02424] transition-colors"
@@ -347,7 +402,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              <button 
                onClick={async () => {
                   if (!user || !reportTargetId || !reportCategory) return;
-                  const finalReason = `[掲示板] ${reportCategory}\n詳細: ${reportDetails.trim() || 'なし'}`;
+                  const finalReason = `[${reportContext || '掲示板'}] ${reportCategory}\n詳細: ${reportDetails.trim() || 'なし'}`;
                   
                   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportTargetId);
                   if (!isUuid) {
