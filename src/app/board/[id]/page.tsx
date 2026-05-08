@@ -24,6 +24,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [reportContext, setReportContext] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const reportOptions = [
     "暴言・誹謗中傷",
     "荒らし・スパム",
@@ -191,14 +193,19 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       setShowReportModal(true);
   };
 
-  const handleDeleteThread = async () => {
-      if (!window.confirm("このスレッドを削除しますか？\n（復元はできません）")) return;
-      
+  const handleDeleteThread = () => {
+      setShowDeleteConfirm(true);
+  };
+
+  const executeDeleteThread = async () => {
+      setIsDeleting(true);
       const { error } = await supabase.from('sns_board_threads').delete().eq('id', id);
       if (!error) {
           router.replace('/board');
       } else {
           alert("削除に失敗しました。");
+          setIsDeleting(false);
+          setShowDeleteConfirm(false);
       }
   };
 
@@ -468,6 +475,54 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              >
                閉じる
              </button>
+           </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col relative shadow-sm text-center">
+             <button 
+               onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+               className="absolute top-4 right-4 text-black hover:text-[#777777] transition-colors"
+               disabled={isDeleting}
+             >
+               <X size={20} className="stroke-[1.5]" />
+             </button>
+             
+             <div className="flex items-center justify-center mb-6 mt-2">
+                <div className="w-10 h-10 border border-[#E02424] flex items-center justify-center text-[#E02424]">
+                   <Trash2 size={18} className="stroke-[1.5]" />
+                </div>
+             </div>
+             
+             <h3 className="text-sm font-bold tracking-widest mb-4 uppercase text-[#E02424] border-b border-[#E5E5E5] pb-4">
+               スレッド削除の確認
+             </h3>
+             <p className="text-[10px] text-[#333333] tracking-widest leading-relaxed mb-2">
+               このスレッドを本当に削除しますか？
+             </p>
+             <p className="text-[10px] text-[#777777] tracking-widest leading-relaxed mb-6">
+               ※この操作は元に戻せません。
+             </p>
+             
+             <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-[#F9F9F9] border border-[#E5E5E5] text-[#777] text-[11px] font-bold tracking-widest hover:bg-[#EEEEEE] transition-colors disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button 
+                  onClick={executeDeleteThread}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-[#E02424] text-white text-[11px] font-bold tracking-widest shadow-md hover:bg-[#C81E1E] transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? "削除中..." : "削除する"}
+                </button>
+             </div>
            </div>
         </div>
       )}
