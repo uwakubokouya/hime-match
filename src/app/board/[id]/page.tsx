@@ -364,7 +364,11 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              </h3>
              <p className="text-[10px] text-[#777777] tracking-widest leading-relaxed mb-6 text-center">
                運営に通報を送信します。<br />
-               対象ユーザーの通報回数が加算され、運営が悪質と判断した場合はアカウント停止措置等を行います。
+               {reportContext.includes('スレッド') ? (
+                   "運営が内容を確認し、不適切と判断した場合はスレッドの削除等を行います。"
+               ) : (
+                   "対象ユーザーの通報回数が加算され、運営が悪質と判断した場合はアカウント停止措置等を行います。"
+               )}
              </p>
              
              <div className="space-y-5 mb-8">
