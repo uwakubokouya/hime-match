@@ -177,12 +177,12 @@ export default function AdminFeedbackPage() {
   const sendThankYou = () => {
     if (!selectedUser?.id) return;
     
-    setConfirmText(`【運営より】\nご報告ありがとうございます。\n内容を確認し、適切に対応させていただきます。\n引き続きよろしくお願いいたします。`);
+    setConfirmText(`【運営より】\nご報告ありがとうございます。\n内容を確認し、適切に対応させていただきます。\n（※ささやかながら、ご報告のお礼として10 POINTを付与させていただきました）\n引き続きよろしくお願いいたします。`);
     
     setGenericConfirm({
       isOpen: true,
-      title: "お礼メッセージの確認",
-      message: `「${selectedUser.name || 'このユーザー'}」に以下のお礼メッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
+      title: "お礼メッセージとPOINT付与",
+      message: `「${selectedUser.name || 'このユーザー'}」に以下のメッセージを送信し、お礼として10 POINTを自動付与しますか？\n(メッセージを空にすると送信・付与されません)`,
       iconType: 'warning',
       isEditable: true,
       onConfirm: async (editedText) => {
@@ -197,17 +197,31 @@ export default function AdminFeedbackPage() {
         }
         
         if (editedText && editedText.trim() !== '') {
-            const { error } = await supabase.from('sns_messages').insert({
+            const { error: msgError } = await supabase.from('sns_messages').insert({
                sender_id: currentUser.id,
                receiver_id: selectedUser.id,
                content: editedText.trim(),
                is_read: false
             });
 
-            if (error) {
-               setResultModal({ isOpen: true, type: 'error', message: `メッセージの送信に失敗しました。\n${error.message}` });
+            if (!msgError) {
+               // ポイント付与
+               const currentPoints = selectedUser.points || 0;
+               const newPoints = currentPoints + 10;
+               
+               await supabase.from('sns_profiles').update({ points: newPoints }).eq('id', selectedUser.id);
+               await supabase.from('points_history').insert({
+                   user_id: selectedUser.id,
+                   action_type: 'report_reward',
+                   points_added: 10
+               });
+               
+               // ローカルステートも更新
+               setSelectedUser((prev: any) => ({ ...prev, points: newPoints }));
+
+               setResultModal({ isOpen: true, type: 'success', message: "お礼メッセージを送信し、10 POINTを付与しました。" });
             } else {
-               setResultModal({ isOpen: true, type: 'success', message: "お礼メッセージを送信しました。" });
+               setResultModal({ isOpen: true, type: 'error', message: `メッセージの送信に失敗しました。\n${msgError.message}` });
             }
         } else {
             setResultModal({ isOpen: true, type: 'success', message: "送信をキャンセルしました。" });
