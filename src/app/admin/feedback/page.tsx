@@ -28,6 +28,7 @@ export default function AdminFeedbackPage() {
   // Restored states
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContext, setModalContext] = useState<'reporter' | 'target' | 'normal'>('normal');
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isBanning, setIsBanning] = useState(false);
@@ -154,9 +155,10 @@ export default function AdminFeedbackPage() {
   };
 
   // Restored functions
-  const handleNameClick = async (userId: string | null) => {
+  const handleNameClick = async (userId: string | null, context: 'reporter' | 'target' | 'normal' = 'normal') => {
     if (!userId) return;
     setIsModalOpen(true);
+    setModalContext(context);
     setIsLoadingUser(true);
     const { data, error } = await supabase
       .from('sns_profiles')
@@ -170,6 +172,49 @@ export default function AdminFeedbackPage() {
       setSelectedUser(null);
     }
     setIsLoadingUser(false);
+  };
+
+  const sendThankYou = () => {
+    if (!selectedUser?.id) return;
+    
+    setConfirmText(`【運営より】\nご報告ありがとうございます。\n内容を確認し、適切に対応させていただきます。\n引き続きよろしくお願いいたします。`);
+    
+    setGenericConfirm({
+      isOpen: true,
+      title: "お礼メッセージの確認",
+      message: `「${selectedUser.name || 'このユーザー'}」に以下のお礼メッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
+      iconType: 'warning',
+      isEditable: true,
+      onConfirm: async (editedText) => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        setIsSendingWarning(true);
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        
+        if (!currentUser) {
+           setResultModal({ isOpen: true, type: 'error', message: "管理者情報を取得できませんでした。" });
+           setIsSendingWarning(false);
+           return;
+        }
+        
+        if (editedText && editedText.trim() !== '') {
+            const { error } = await supabase.from('sns_messages').insert({
+               sender_id: currentUser.id,
+               receiver_id: selectedUser.id,
+               content: editedText.trim(),
+               is_read: false
+            });
+
+            if (error) {
+               setResultModal({ isOpen: true, type: 'error', message: `メッセージの送信に失敗しました。\n${error.message}` });
+            } else {
+               setResultModal({ isOpen: true, type: 'success', message: "お礼メッセージを送信しました。" });
+            }
+        } else {
+            setResultModal({ isOpen: true, type: 'success', message: "送信をキャンセルしました。" });
+        }
+        setIsSendingWarning(false);
+      }
+    });
   };
 
   const handleResetPasswordClick = () => {
@@ -350,7 +395,7 @@ export default function AdminFeedbackPage() {
                   <div>
                     <h3 className="text-sm font-bold tracking-widest flex items-center gap-2">
                        <button 
-                         onClick={() => handleNameClick(fb.user_id)}
+                         onClick={() => handleNameClick(fb.user_id, fb.content.includes('[通報]') ? 'reporter' : 'normal')}
                          className={`hover:text-[#777] transition-colors ${fb.user_id ? 'cursor-pointer underline decoration-[#CCC] underline-offset-4' : 'cursor-default'}`}
                          disabled={!fb.user_id}
                        >
@@ -452,7 +497,7 @@ export default function AdminFeedbackPage() {
                               <div className="mt-4 border border-[#E5E5E5] bg-[#FFF5F5] p-4 flex items-center justify-between">
                                   <p className="text-[10px] tracking-widest text-[#E02424] uppercase font-bold">対象のユーザー</p>
                                   <button
-                                      onClick={() => handleNameClick(targetUserMatch[1])}
+                                      onClick={() => handleNameClick(targetUserMatch[1], 'target')}
                                       className="px-4 py-2 bg-[#E02424] text-white text-[10px] tracking-widest font-bold hover:bg-[#C81E1E] transition-colors"
                                   >
                                       ユーザーを確認する
@@ -532,45 +577,61 @@ export default function AdminFeedbackPage() {
 
                    {/* Actions Button */}
                    <div className="pt-2 space-y-2">
-                     <button
-                       onClick={sendWarning}
-                       disabled={isSendingWarning}
-                       className="w-full py-3 bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] text-[10px] font-bold tracking-widest hover:bg-[#E02424] hover:text-white transition-colors flex items-center justify-center gap-2"
-                     >
-                       {isSendingWarning ? (
-                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                       ) : (
-                         '警告メッセージを送信する'
-                       )}
-                     </button>
-                     <button
-                       onClick={toggleBan}
-                       disabled={isBanning}
-                       className={`w-full py-3 text-[10px] font-bold tracking-widest transition-colors flex items-center justify-center gap-2 ${
-                          selectedUser.status === 'banned' 
-                          ? 'bg-black text-white hover:bg-[#333]' 
-                          : 'bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] hover:bg-[#E02424] hover:text-white'
-                       }`}
-                     >
-                       {isBanning ? (
-                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                       ) : selectedUser.status === 'banned' ? (
-                         '利用停止(BAN)を解除する'
-                       ) : (
-                         'このアカウントを利用停止(BAN)にする'
-                       )}
-                     </button>
-                     <button
-                       onClick={handleResetPasswordClick}
-                       disabled={isResetting}
-                       className="w-full py-3 bg-white border border-[#333] text-[#333] text-[10px] font-bold tracking-widest hover:bg-[#333] hover:text-white transition-colors flex items-center justify-center gap-2"
-                     >
-                       {isResetting ? (
-                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                       ) : (
-                         '※ パスワードを「000000」に初期化する'
-                       )}
-                     </button>
+                     {modalContext === 'reporter' ? (
+                       <button
+                         onClick={sendThankYou}
+                         disabled={isSendingWarning}
+                         className="w-full py-3 bg-black text-white text-[10px] font-bold tracking-widest hover:bg-[#333] transition-colors flex items-center justify-center gap-2"
+                       >
+                         {isSendingWarning ? (
+                           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                         ) : (
+                           'お礼メッセージを送信する'
+                         )}
+                       </button>
+                     ) : (
+                       <>
+                         <button
+                           onClick={sendWarning}
+                           disabled={isSendingWarning}
+                           className="w-full py-3 bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] text-[10px] font-bold tracking-widest hover:bg-[#E02424] hover:text-white transition-colors flex items-center justify-center gap-2"
+                         >
+                           {isSendingWarning ? (
+                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                           ) : (
+                             '警告メッセージを送信する'
+                           )}
+                         </button>
+                         <button
+                           onClick={toggleBan}
+                           disabled={isBanning}
+                           className={`w-full py-3 text-[10px] font-bold tracking-widest transition-colors flex items-center justify-center gap-2 ${
+                              selectedUser.status === 'banned' 
+                              ? 'bg-black text-white hover:bg-[#333]' 
+                              : 'bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] hover:bg-[#E02424] hover:text-white'
+                           }`}
+                         >
+                           {isBanning ? (
+                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                           ) : selectedUser.status === 'banned' ? (
+                             '利用停止(BAN)を解除する'
+                           ) : (
+                             'このアカウントを利用停止(BAN)にする'
+                           )}
+                         </button>
+                         <button
+                           onClick={handleResetPasswordClick}
+                           disabled={isResetting}
+                           className="w-full py-3 bg-white border border-[#333] text-[#333] text-[10px] font-bold tracking-widest hover:bg-[#333] hover:text-white transition-colors flex items-center justify-center gap-2"
+                         >
+                           {isResetting ? (
+                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                           ) : (
+                             '※ パスワードを「000000」に初期化する'
+                           )}
+                         </button>
+                       </>
+                     )}
                    </div>
                  </div>
               ) : (
