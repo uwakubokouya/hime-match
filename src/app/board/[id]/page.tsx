@@ -3,7 +3,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/providers/UserProvider';
-import { ChevronLeft, Send, ImagePlus, User, Trash2 } from 'lucide-react';
+import { ChevronLeft, Send, ImagePlus, User, Trash2, Flag, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +15,18 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [isLoading, setIsLoading] = useState(true);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  
+  // Report Modal State
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetId, setReportTargetId] = useState<string | null>(null);
+  const [reportCategory, setReportCategory] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const reportOptions = [
+    "暴言・誹謗中傷",
+    "荒らし・スパム",
+    "不適切な内容",
+    "その他"
+  ];
 
   const isVipOrManagement = user?.is_vip || ['system', 'admin', 'management'].includes(user?.role || '');
 
@@ -226,9 +238,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                          </button>
                          <button 
                             onClick={() => {
-                                if (window.confirm('この投稿を通報しますか？')) {
-                                    window.alert('通報が完了しました。運営にて内容を確認いたします。');
-                                }
+                                setReportTargetId(post.user_id);
+                                setShowReportModal(true);
                             }}
                             className="text-[10px] text-[#999999] hover:text-[#E02424] transition-colors"
                          >
@@ -273,6 +284,100 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              <Send size={16} />
          </button>
       </div>
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col relative shadow-sm">
+             <button 
+               onClick={() => setShowReportModal(false)}
+               className="absolute top-4 right-4 text-black hover:text-[#777777] transition-colors"
+             >
+               <X size={20} className="stroke-[1.5]" />
+             </button>
+             
+             <div className="flex items-center justify-center mb-6">
+                <div className="w-10 h-10 border border-[#E02424] flex items-center justify-center text-[#E02424]">
+                   <Flag size={18} className="stroke-[1.5]" />
+                </div>
+             </div>
+             
+             <h3 className="text-sm font-bold tracking-widest mb-4 uppercase text-center text-black border-b border-[#E5E5E5] pb-4">
+               通報・報告する
+             </h3>
+             <p className="text-[10px] text-[#777777] tracking-widest leading-relaxed mb-6 text-center">
+               運営に通報を送信します。<br />
+               対象ユーザーの通報回数が加算され、運営が悪質と判断した場合はアカウント停止措置等を行います。
+             </p>
+             
+             <div className="space-y-5 mb-8">
+                <div className="space-y-3">
+                   <label className="text-[10px] uppercase tracking-widest text-[#777777] block mb-2">Category (理由)</label>
+                   {reportOptions.map(opt => (
+                     <label key={opt} className="flex items-center gap-3 cursor-pointer group">
+                       <div className="relative flex items-center justify-center">
+                         <input 
+                           type="radio" 
+                           name="report_category"
+                           value={opt}
+                           checked={reportCategory === opt}
+                           onChange={(e) => setReportCategory(e.target.value)}
+                           className="peer appearance-none w-4 h-4 border border-black checked:bg-black transition-colors cursor-pointer rounded-full"
+                         />
+                         <div className="absolute w-1.5 h-1.5 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></div>
+                       </div>
+                       <span className="text-xs tracking-widest text-[#333333] group-hover:text-black transition-colors">{opt}</span>
+                     </label>
+                   ))}
+                </div>
+                
+                <div className="space-y-2 pt-4 border-t border-[#E5E5E5]">
+                   <label className="text-[10px] uppercase tracking-widest text-[#777777] block">Details (詳細)</label>
+                   <textarea 
+                     value={reportDetails}
+                     onChange={e => setReportDetails(e.target.value)}
+                     placeholder="詳細な理由をご記入ください..."
+                     className="w-full border-b border-[#E5E5E5] pb-2 pt-2 min-h-[80px] text-sm outline-none focus:border-black transition-colors bg-transparent rounded-none resize-none leading-relaxed"
+                   />
+                </div>
+             </div>
+             
+             <button 
+               onClick={async () => {
+                  if (!user || !reportTargetId || !reportCategory) return;
+                  const finalReason = `[掲示板] ${reportCategory}\n詳細: ${reportDetails.trim() || 'なし'}`;
+                  
+                  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportTargetId);
+                  if (!isUuid) {
+                      alert("無効なユーザーIDです。");
+                      setShowReportModal(false);
+                      return;
+                  }
+
+                  const { error } = await supabase.rpc('report_user', {
+                      p_target_id: reportTargetId,
+                      p_reporter_id: user.id,
+                      p_reason: finalReason
+                  });
+
+                  if (!error) {
+                      alert("通報を受け付けました。運営にて確認いたします。");
+                      setShowReportModal(false);
+                      setReportCategory("");
+                      setReportDetails("");
+                  } else {
+                      alert("通報の送信に失敗しました。");
+                      console.error("Report error:", error);
+                  }
+               }}
+               disabled={!reportCategory}
+               className="w-full py-4 text-xs tracking-widest flex items-center justify-center bg-black text-white hover:bg-black/80 transition-colors disabled:opacity-50"
+             >
+               通報を送信する
+             </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
