@@ -2,7 +2,7 @@
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Send, MoreHorizontal, Ban, BellOff, Flag, User as UserIcon, Pencil, Trash2, Heart, Lock, Calendar, X, HelpCircle, Star } from 'lucide-react';
+import { ChevronLeft, Send, MoreHorizontal, Ban, BellOff, Flag, User as UserIcon, Pencil, Trash2, Heart, Lock, Calendar, X, HelpCircle, Star, ImagePlus } from 'lucide-react';
 import { useUser } from '@/providers/UserProvider';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,8 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
   const { user } = useUser();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
+  const [attachedImage, setAttachedImage] = useState<File | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -51,22 +53,61 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const renderMessageContent = (content: string) => {
+  const renderMessageContent = (msg: any) => {
+    const content = msg.content;
     if (!content) return null;
     
     if (content.startsWith('[SYSTEM_LIKE]')) {
       return <><Heart size={14} className="fill-[#E02424] text-[#E02424] mr-2" /> {content.replace('[SYSTEM_LIKE]', '')}</>;
     }
     
+    let textContent = content;
+    let imageElement = null;
+
+    const imagePattern = /\[IMAGE:(.+?)\]/;
+    const imageMatch = content.match(imagePattern);
+    
+    if (imageMatch) {
+       const imageUrl = imageMatch[1];
+       textContent = content.replace(imageMatch[0], '').trim();
+       
+       // 24時間チェック (24 * 60 * 60 * 1000 = 86400000)
+       const isExpired = Date.now() - new Date(msg.created_at).getTime() > 86400000;
+       
+       if (isExpired) {
+          imageElement = (
+              <div className="w-full max-w-[200px] aspect-square flex items-center justify-center bg-[#F9F9F9] border border-[#E5E5E5] text-[10px] text-[#777777] tracking-widest mt-2 p-4 text-center">
+                  閲覧期限が切れました
+              </div>
+          );
+       } else {
+          // 透かし付き画像
+          const isReceiver = msg.receiver_id === user?.id;
+          const svgWatermark = `data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23ffffff' font-family='sans-serif' font-weight='bold' text-anchor='middle' dominant-baseline='middle' transform='rotate(-45 60 60)'%3E${user?.id?.substring(0, 8)}%3C/text%3E%3C/svg%3E`;
+
+          imageElement = (
+              <div className="relative inline-block w-full max-w-[200px] mt-2 overflow-hidden border border-[#E5E5E5]">
+                  <img src={imageUrl} alt="Attachment" className="w-full h-auto object-cover" />
+                  {isReceiver && (
+                      <div className="absolute inset-0 pointer-events-none opacity-40 mix-blend-overlay z-10" style={{ backgroundImage: `url("${svgWatermark}")` }}>
+                      </div>
+                  )}
+              </div>
+          );
+       }
+    }
+
     const reviewPattern = /\[REVIEW:([0-9a-fA-F-]+)\]/;
-    const match = content.match(reviewPattern);
+    const match = textContent.match(reviewPattern);
+    
+    let textElement: React.ReactNode = textContent;
     
     if (match) {
        const reviewId = match[1];
-       const before = content.substring(0, match.index);
-       const after = content.substring(match.index! + match[0].length);
+       const before = textContent.substring(0, match.index);
+       const after = textContent.substring(match.index! + match[0].length);
        
-       return (
+       textElement = (
           <>
             {before}
             <button 
@@ -79,7 +120,12 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
        );
     }
 
-    return content;
+    return (
+       <div className="flex flex-col gap-1">
+          {textElement}
+          {imageElement}
+       </div>
+    );
   };
   const [nextShift, setNextShift] = useState<string | null>(null);
   const [unsendCandidate, setUnsendCandidate] = useState<string | null>(null);
@@ -308,33 +354,61 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !user || !id) return;
+    if ((!inputText.trim() && !attachedImage) || !user || !id) return;
     
     // UUIDチェック
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     if (!isUuid) {
         alert("無効なユーザーIDです。デモ版のためメッセージは送信されません。");
         setInputText("");
+        setAttachedImage(null);
         return;
     }
     
-    const textToSend = inputText;
-    setInputText("");
+    setIsSending(true);
+    let finalContent = inputText.trim();
     
-    // Insert into DB
-    const { data: insertedMsg, error } = await supabase.from('sns_messages').insert({
-       sender_id: user.id,
-       receiver_id: id,
-       content: textToSend,
-    }).select().single();
-    
-    if (error) {
-       alert("メッセージの送信に失敗しました");
-    } else if (insertedMsg) {
-       setMessages(prev => {
-           if (prev.some(m => m.id === insertedMsg.id)) return prev;
-           return [...prev, insertedMsg];
-       });
+    try {
+        if (attachedImage) {
+            const file = attachedImage;
+            const ext = file.name.split('.').pop() || 'jpg';
+            const fileName = `dm-${user.id}-${Date.now()}.${ext}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('post_images')
+                .upload(fileName, file);
+                
+            if (uploadError) throw uploadError;
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('post_images')
+                .getPublicUrl(fileName);
+                
+            finalContent = finalContent ? `${finalContent}\n[IMAGE:${publicUrl}]` : `[IMAGE:${publicUrl}]`;
+        }
+        
+        // Insert into DB
+        const { data: insertedMsg, error } = await supabase.from('sns_messages').insert({
+           sender_id: user.id,
+           receiver_id: id,
+           content: finalContent,
+        }).select().single();
+        
+        if (error) {
+           alert("メッセージの送信に失敗しました");
+        } else if (insertedMsg) {
+           setInputText("");
+           setAttachedImage(null);
+           setMessages(prev => {
+               if (prev.some(m => m.id === insertedMsg.id)) return prev;
+               return [...prev, insertedMsg];
+           });
+        }
+    } catch (err) {
+        alert("画像のアップロードまたは送信に失敗しました");
+        console.error(err);
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -525,7 +599,7 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
                             ? 'bg-[#FFF0F5] text-[#E02424] border-[#FFC0CB] flex items-center justify-center font-bold tracking-widest'
                             : 'bg-white text-black border-[#E5E5E5]'
                     }`}>
-                      {renderMessageContent(msg.content)}
+                      {renderMessageContent(msg)}
                     </div>
 
                     {/* For PARTNER: Time */}
@@ -587,22 +661,55 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
             }
 
             return (
-               <form onSubmit={handleSend} className="flex gap-2 items-center">
-                  <input 
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="メッセージを入力..."
-                    className="flex-1 h-12 bg-[#F9F9F9] border border-[#E5E5E5] px-4 text-sm font-light outline-none rounded-none focus:border-black transition-colors"
-                  />
-                  <button 
-                    type="submit" 
-                    disabled={!inputText.trim()}
-                    className="h-12 w-12 flex items-center justify-center bg-black text-white disabled:bg-[#E5E5E5] disabled:text-[#777777] transition-colors rounded-none"
-                  >
-                    <Send size={18} className="stroke-[1.5] -ml-1" />
-                  </button>
-               </form>
+               <div className="flex flex-col w-full">
+                  {attachedImage && (
+                     <div className="mb-2 relative inline-block self-start border border-[#E5E5E5] bg-white p-1 ml-10">
+                        <button 
+                            type="button"
+                            onClick={() => setAttachedImage(null)}
+                            className="absolute -top-2 -right-2 bg-white border border-black text-black rounded-full p-0.5 hover:bg-black hover:text-white transition-colors z-10"
+                        >
+                            <X size={12} className="stroke-[2]" />
+                        </button>
+                        <img src={URL.createObjectURL(attachedImage)} alt="Preview" className="h-16 w-auto object-cover" />
+                     </div>
+                  )}
+                  <form onSubmit={handleSend} className="flex gap-2 items-center w-full">
+                     {user?.role === 'cast' && (
+                        <label className="flex items-center justify-center w-10 h-10 text-black hover:text-[#777777] transition-colors cursor-pointer shrink-0">
+                           <ImagePlus size={20} className="stroke-[1.5]" />
+                           <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                 if (e.target.files && e.target.files[0]) {
+                                     setAttachedImage(e.target.files[0]);
+                                 }
+                              }}
+                           />
+                        </label>
+                     )}
+                     <input 
+                       type="text"
+                       value={inputText}
+                       onChange={(e) => setInputText(e.target.value)}
+                       placeholder="メッセージを入力..."
+                       className="flex-1 h-12 bg-[#F9F9F9] border border-[#E5E5E5] px-4 text-sm font-light outline-none rounded-none focus:border-black transition-colors"
+                     />
+                     <button 
+                       type="submit" 
+                       disabled={(!inputText.trim() && !attachedImage) || isSending}
+                       className="h-12 w-12 flex items-center justify-center bg-black text-white disabled:bg-[#E5E5E5] disabled:text-[#777777] transition-colors rounded-none shrink-0"
+                     >
+                       {isSending ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                       ) : (
+                          <Send size={18} className="stroke-[1.5] -ml-1" />
+                       )}
+                     </button>
+                  </form>
+               </div>
             );
          })()}
       </div>
