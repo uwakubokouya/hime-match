@@ -133,18 +133,44 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
     setStatusMessage("");
   };
 
-  const executeResetPassword = async () => {
+  const handleResetPasswordClick = () => {
     if (!selectedUser?.id) return;
-    setIsResetting(true);
-    const { error } = await supabase.rpc('_admin_reset_password_to_zero', { 
-      target_user_id: selectedUser.id 
+    
+    setConfirmText(`【パスワード初期化のお知らせ】\nあなたのアカウントのパスワードを「000000」に初期化しました。\n次回ログイン時に「000000」を入力してログインし、速やかにパスワードの変更をお願いいたします。`);
+    
+    setGenericConfirm({
+      isOpen: true,
+      title: "パスワード初期化の確認",
+      message: `「${selectedUser.name || 'このユーザー'}」のパスワードを初期化し、以下のメッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
+      iconType: 'warning',
+      isEditable: true,
+      onConfirm: async (editedText) => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        setIsResetting(true);
+        
+        const { error } = await supabase.rpc('_admin_reset_password_to_zero', { 
+          target_user_id: selectedUser.id 
+        });
+
+        if (error) {
+          setStatusMessage("エラー: " + error.message);
+        } else {
+          if (editedText && editedText.trim() !== '') {
+             const { data: { user: currentUser } } = await supabase.auth.getUser();
+             if (currentUser) {
+                await supabase.from('sns_messages').insert({
+                   sender_id: currentUser.id,
+                   receiver_id: selectedUser.id,
+                   content: editedText.trim(),
+                   is_read: false
+                });
+             }
+          }
+          setStatusMessage("パスワードを「000000」に初期化しました。");
+        }
+        setIsResetting(false);
+      }
     });
-    if (error) {
-      setStatusMessage("エラー: " + error.message);
-    } else {
-      setStatusMessage("パスワードを「000000」に初期化しました。");
-    }
-    setIsResetting(false);
   };
 
   const sendWarning = () => {
@@ -191,18 +217,36 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
     const newStatus = selectedUser.status === 'banned' ? 'active' : 'banned';
     const actionText = newStatus === 'banned' ? '利用停止(BAN)にする' : 'BANを解除する';
     
+    const defaultText = newStatus === 'banned' 
+      ? `【アカウント利用停止のお知らせ】\n利用規約に違反する行為が確認されたため、あなたのアカウントを利用停止(BAN)といたしました。\nご不明な点がある場合は運営までお問い合わせください。`
+      : `【アカウント復旧のお知らせ】\nあなたのアカウントの利用停止(BAN)を解除いたしました。\n今後は利用規約を遵守してご利用ください。`;
+
+    setConfirmText(defaultText);
+
     setGenericConfirm({
       isOpen: true,
       title: "BANの確認",
-      message: `このユーザーを${actionText}してもよろしいですか？`,
+      message: `「${selectedUser.name || 'このユーザー'}」を${actionText}し、以下のメッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
       iconType: 'ban',
-      onConfirm: async () => {
+      isEditable: true,
+      onConfirm: async (editedText) => {
         setGenericConfirm(prev => ({ ...prev, isOpen: false }));
         const { error } = await supabase
           .from('sns_profiles')
           .update({ status: newStatus })
           .eq('id', selectedUser.id);
         if (!error) {
+          if (editedText && editedText.trim() !== '') {
+             const { data: { user: currentUser } } = await supabase.auth.getUser();
+             if (currentUser) {
+                await supabase.from('sns_messages').insert({
+                   sender_id: currentUser.id,
+                   receiver_id: selectedUser.id,
+                   content: editedText.trim(),
+                   is_read: false
+                });
+             }
+          }
           setSelectedUser({ ...selectedUser, status: newStatus });
           setCustomers(customers.map(c => c.id === selectedUser.id ? { ...c, status: newStatus } : c));
           setStatusMessage(newStatus === 'banned' ? "アカウントを停止しました。" : "アカウントを復旧しました。");
@@ -628,11 +672,11 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
                 </button>
 
                 <button
-                  onClick={executeResetPassword}
+                  onClick={handleResetPasswordClick}
                   disabled={isResetting}
                   className="w-full py-3 bg-white border border-[#333] text-[#333] text-[10px] font-bold tracking-widest hover:bg-[#333] hover:text-white transition-colors"
                 >
-                  {isResetting ? '処理中...' : 'パスワードを「000000」に初期化'}
+                  {isResetting ? '処理中...' : '※ パスワードを「000000」に初期化'}
                 </button>
 
                 <button

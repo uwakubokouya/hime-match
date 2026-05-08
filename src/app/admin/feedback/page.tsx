@@ -30,7 +30,6 @@ export default function AdminFeedbackPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isBanning, setIsBanning] = useState(false);
   const [isSendingWarning, setIsSendingWarning] = useState(false);
   const [resultModal, setResultModal] = useState<{ isOpen: boolean; type: 'success' | 'error'; message: string }>({ isOpen: false, type: 'success', message: "" });
@@ -175,27 +174,42 @@ export default function AdminFeedbackPage() {
 
   const handleResetPasswordClick = () => {
     if (!selectedUser?.id) return;
-    setIsConfirmResetOpen(true);
-  };
+    
+    setConfirmText(`【パスワード初期化のお知らせ】\nあなたのアカウントのパスワードを「000000」に初期化しました。\n次回ログイン時に「000000」を入力してログインし、速やかにパスワードの変更をお願いいたします。`);
+    
+    setGenericConfirm({
+      isOpen: true,
+      title: "パスワード初期化の確認",
+      message: `「${selectedUser.name || 'このユーザー'}」のパスワードを初期化し、以下のメッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
+      iconType: 'warning',
+      isEditable: true,
+      onConfirm: async (editedText) => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        setIsResetting(true);
+        
+        const { error } = await supabase.rpc('_admin_reset_password_to_zero', { 
+          target_user_id: selectedUser.id 
+        });
 
-  const executeResetPassword = async () => {
-    if (!selectedUser?.id) return;
-    
-    setIsConfirmResetOpen(false);
-    setIsResetting(true);
-    
-    const { error } = await supabase.rpc('_admin_reset_password_to_zero', { 
-      target_user_id: selectedUser.id 
+        if (error) {
+          setResultModal({ isOpen: true, type: 'error', message: `パスワードの初期化に失敗しました。\n${error.message}` });
+        } else {
+          if (editedText && editedText.trim() !== '') {
+             const { data: { user: currentUser } } = await supabase.auth.getUser();
+             if (currentUser) {
+                await supabase.from('sns_messages').insert({
+                   sender_id: currentUser.id,
+                   receiver_id: selectedUser.id,
+                   content: editedText.trim(),
+                   is_read: false
+                });
+             }
+          }
+          setResultModal({ isOpen: true, type: 'success', message: `「${selectedUser.name || '名無し'}」のパスワードを「000000」に初期化しました。\nお客様に「000000」でログインして変更するようにお伝えください。` });
+        }
+        setIsResetting(false);
+      }
     });
-
-    if (error) {
-      console.error(error);
-      setResultModal({ isOpen: true, type: 'error', message: 'パスワードの初期化に失敗しました。\nSupabaseのSQLが正しく実行されているかご確認ください。' });
-    } else {
-      setResultModal({ isOpen: true, type: 'success', message: `「${selectedUser.name || '名無し'}」のパスワードを「000000」に初期化しました。\nお客様に「000000」でログインして変更するようにお伝えください。` });
-    }
-    
-    setIsResetting(false);
   };
 
   const toggleBan = () => {
@@ -204,12 +218,19 @@ export default function AdminFeedbackPage() {
     const newStatus = selectedUser.status === 'banned' ? 'active' : 'banned';
     const actionText = newStatus === 'banned' ? '利用停止(BAN)にする' : 'BANを解除する';
     
+    const defaultText = newStatus === 'banned' 
+      ? `【アカウント利用停止のお知らせ】\n利用規約に違反する行為が確認されたため、あなたのアカウントを利用停止(BAN)といたしました。\nご不明な点がある場合は運営までお問い合わせください。`
+      : `【アカウント復旧のお知らせ】\nあなたのアカウントの利用停止(BAN)を解除いたしました。\n今後は利用規約を遵守してご利用ください。`;
+
+    setConfirmText(defaultText);
+
     setGenericConfirm({
       isOpen: true,
       title: "BANの確認",
-      message: `このユーザーを${actionText}してもよろしいですか？`,
+      message: `「${selectedUser.name || 'このユーザー'}」を${actionText}し、以下のメッセージを送信しますか？\n(メッセージを空にすると送信されません)`,
       iconType: 'ban',
-      onConfirm: async () => {
+      isEditable: true,
+      onConfirm: async (editedText) => {
         setGenericConfirm(prev => ({ ...prev, isOpen: false }));
         setIsBanning(true);
         const { error } = await supabase
@@ -220,6 +241,17 @@ export default function AdminFeedbackPage() {
         if (error) {
           setResultModal({ isOpen: true, type: 'error', message: `ステータスの更新に失敗しました。\n${error.message}` });
         } else {
+          if (editedText && editedText.trim() !== '') {
+             const { data: { user: currentUser } } = await supabase.auth.getUser();
+             if (currentUser) {
+                await supabase.from('sns_messages').insert({
+                   sender_id: currentUser.id,
+                   receiver_id: selectedUser.id,
+                   content: editedText.trim(),
+                   is_read: false
+                });
+             }
+          }
           setSelectedUser({ ...selectedUser, status: newStatus });
           setResultModal({ isOpen: true, type: 'success', message: `アカウントを${newStatus === 'banned' ? '停止(BAN)' : '復旧'}しました。` });
         }
@@ -508,38 +540,7 @@ export default function AdminFeedbackPage() {
         </div>
       )}
 
-      {/* Confirm Reset Modal */}
-      {isConfirmResetOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm border border-black shadow-2xl relative overflow-hidden">
-            <div className="p-6 text-center">
-              <h2 className="text-sm font-bold tracking-widest text-[#E02424] mb-3 flex items-center justify-center gap-2">
-                <CheckCircle2 size={18} className="stroke-[2]" />
-                初期化の確認
-              </h2>
-              <p className="text-xs text-[#333] leading-relaxed tracking-widest mb-2">
-                「<strong>{selectedUser?.name || '名無し'}</strong>」のパスワードを<br/>「<strong>000000</strong>」に初期化しますか？
-              </p>
-              <p className="text-[10px] text-[#777] mb-6">※この操作は元に戻せません</p>
-              
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setIsConfirmResetOpen(false)}
-                  className="flex-1 py-3 bg-[#F9F9F9] border border-[#E5E5E5] text-[#777] text-[11px] font-bold tracking-widest hover:bg-[#EEEEEE] transition-colors"
-                >
-                  キャンセル
-                </button>
-                <button 
-                  onClick={executeResetPassword}
-                  className="flex-1 py-3 bg-[#E02424] text-white text-[11px] font-bold tracking-widest shadow-md hover:bg-[#C81E1E] transition-colors"
-                >
-                  初期化する
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Confirm Delete Review Modal */}
       {deleteReviewConfirm.isOpen && (
