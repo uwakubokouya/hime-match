@@ -224,18 +224,16 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                          >
                             [返信]
                          </button>
-                         {!isMe && (
-                             <button 
-                                onClick={() => {
-                                    if (window.confirm('この投稿を通報しますか？')) {
-                                        window.alert('通報が完了しました。運営にて内容を確認いたします。');
-                                    }
-                                }}
-                                className="text-[10px] text-[#999999] hover:text-[#E02424] transition-colors"
-                             >
-                                [通報]
-                             </button>
-                         )}
+                         <button 
+                            onClick={() => {
+                                if (window.confirm('この投稿を通報しますか？')) {
+                                    window.alert('通報が完了しました。運営にて内容を確認いたします。');
+                                }
+                            }}
+                            className="text-[10px] text-[#999999] hover:text-[#E02424] transition-colors"
+                         >
+                            [通報]
+                         </button>
                      </div>
                  </div>
              );
