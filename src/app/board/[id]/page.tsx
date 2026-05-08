@@ -140,15 +140,11 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const formatTime = (timestamp: string) => {
     if (!timestamp) return "";
     const d = new Date(timestamp);
-    const today = new Date();
-    const isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-    const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-    
-    if (isToday) {
-      return timeStr;
-    } else {
-      return `${d.getMonth() + 1}/${d.getDate()} ${timeStr}`;
-    }
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    const h = d.getHours().toString().padStart(2, '0');
+    const min = d.getMinutes().toString().padStart(2, '0');
+    return `${m}/${day} ${h}:${min}`;
   };
 
   if (isLoading || !user) {
@@ -176,7 +172,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       {/* Posts */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-36">
+      <div className="flex-1 overflow-y-auto bg-white pb-36">
          {posts.map((post, index) => {
              const isMe = post.user_id === user.id;
              const isSystem = post.sns_profiles?.role === 'system' || post.sns_profiles?.role === 'admin';
@@ -191,79 +187,56 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              }
              
              return (
-                 <div key={post.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Avatar */}
-                    {!isMe && (
-                        <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white border border-[#E5E5E5] flex items-center justify-center mt-1">
-                            {isSystem ? (
-                                <img src="/images/himematch-logo.png" alt="System" className="w-full h-full object-contain p-1" />
-                            ) : post.sns_profiles?.avatar_url ? (
-                                <img src={post.sns_profiles.avatar_url} alt="User" className="w-full h-full object-cover" />
-                            ) : (
-                                <User size={16} className="text-[#777777]" />
-                            )}
-                        </div>
-                    )}
-                    
-                    {/* Message Bubble */}
-                    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                        {!isMe ? (
-                            <span className="text-[9px] text-[#777777] tracking-widest mb-1 ml-1 flex items-center gap-1">
-                               <span>{postNumber}.</span>
-                               {isSystem ? "運営" : (post.sns_profiles?.name || "名無し")}
-                               {post.sns_profiles?.is_vip && !isSystem && (
-                                   <img src="/images/vip-crown.png" alt="VIP" className="h-3 object-contain" />
-                               )}
-                            </span>
-                        ) : (
-                            <span className="text-[9px] text-[#777777] tracking-widest mb-1 mr-1 flex items-center gap-1 justify-end">
-                               <span>{postNumber}. 自分</span>
-                            </span>
-                        )}
-                        
-                        <div className={`p-3 text-xs leading-relaxed whitespace-pre-wrap flex flex-col gap-2 ${
-                            isMe ? 'bg-black text-white' : 'bg-white text-[#333333] border border-[#E5E5E5]'
-                        }`}>
-                            {replyPost && (
-                                <div className={`p-2 border-l-2 text-[10px] opacity-90 ${
-                                    isMe ? 'bg-white/10 border-white/30' : 'bg-black/5 border-black/20'
-                                }`}>
-                                   <div className="text-[8px] mb-1 opacity-70 flex items-center gap-1">
-                                      <span>{replyNumber}.</span>
-                                      <span>{replyPost.sns_profiles?.name || '名無し'}</span>
-                                   </div>
-                                   <div className="line-clamp-2 leading-relaxed">
-                                      {replyPost.content}
-                                   </div>
-                                </div>
-                            )}
-                            <div>{post.content}</div>
-                        </div>
-                        
-                        <div className={`flex items-center gap-3 mt-1 px-1 ${isMe ? 'justify-end' : 'justify-start'} w-full`}>
-                            <span className="text-[9px] text-[#777777] tracking-widest">
-                                {formatTime(post.created_at)}
-                            </span>
-                            <button 
-                               onClick={() => setInputText(prev => prev + `>>${postNumber} `)}
-                               className="text-[9px] text-[#777777] hover:text-black tracking-widest transition-colors"
-                            >
-                               返信
-                            </button>
-                            {!isMe && (
-                               <button 
-                                  onClick={() => {
-                                      if (window.confirm('この投稿を通報しますか？')) {
-                                          window.alert('通報が完了しました。運営にて内容を確認いたします。');
-                                      }
-                                  }}
-                                  className="text-[9px] text-[#777777] hover:text-[#E02424] tracking-widest transition-colors"
-                               >
-                                  通報
-                               </button>
-                            )}
-                        </div>
-                    </div>
+                 <div key={post.id} className="border-b border-[#E5E5E5] px-4 py-3">
+                     <div className="flex items-center gap-2 mb-2">
+                         <span className="text-xs font-bold text-[#333333]">{postNumber}</span>
+                         <span className={`text-xs font-bold ${isMe ? 'text-[#3B82F6]' : 'text-[#4B4B4B]'}`}>
+                             {isSystem ? "運営" : (post.sns_profiles?.name || "名無しさん")}
+                         </span>
+                         {post.sns_profiles?.is_vip && !isSystem && (
+                             <img src="/images/vip-crown.png" alt="VIP" className="h-3 object-contain" />
+                         )}
+                         <span className="text-[10px] text-[#999999] ml-auto">
+                             {formatTime(post.created_at)}
+                         </span>
+                     </div>
+                     
+                     {replyPost && (
+                         <div className="bg-[#F5F5F5] border-l-4 border-[#CCCCCC] p-2 mb-2 text-[11px] text-[#555555]">
+                            <div className="mb-1 flex items-center gap-1 font-bold">
+                               <span>&gt;&gt;{replyNumber}</span>
+                               <span className="font-normal">{replyPost.sns_profiles?.name || '名無しさん'}</span>
+                            </div>
+                            <div className="line-clamp-2 leading-relaxed">
+                               {replyPost.content}
+                            </div>
+                         </div>
+                     )}
+                     
+                     <div className="text-[13px] text-[#333333] leading-relaxed whitespace-pre-wrap break-words">
+                         {post.content}
+                     </div>
+                     
+                     <div className="flex justify-end gap-4 mt-2">
+                         <button 
+                            onClick={() => setInputText(prev => prev + `>>${postNumber} \n`)}
+                            className="text-[10px] text-[#999999] hover:text-black transition-colors"
+                         >
+                            [返信]
+                         </button>
+                         {!isMe && (
+                             <button 
+                                onClick={() => {
+                                    if (window.confirm('この投稿を通報しますか？')) {
+                                        window.alert('通報が完了しました。運営にて内容を確認いたします。');
+                                    }
+                                }}
+                                className="text-[10px] text-[#999999] hover:text-[#E02424] transition-colors"
+                             >
+                                [通報]
+                             </button>
+                         )}
+                     </div>
                  </div>
              );
          })}
