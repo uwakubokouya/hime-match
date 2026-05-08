@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useUser, calculateUserRank } from '@/providers/UserProvider';
-import { ChevronLeft, MessageCircle, Plus, Crown, Lock, X } from 'lucide-react';
+import { ChevronLeft, MessageCircle, Plus, Crown, Lock, X, Star } from 'lucide-react';
 import Link from 'next/link';
 import VIPUpgradeModal from '@/components/ui/VIPUpgradeModal';
 
@@ -19,6 +19,8 @@ export default function BoardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newThreadTitle, setNewThreadTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   
   // User rank computation
   const userRank = user?.points !== undefined ? calculateUserRank(user.points) : 'Standard';
@@ -28,6 +30,23 @@ export default function BoardPage() {
   useEffect(() => {
     fetchThreads();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+        fetchFavorites();
+    }
+  }, [user?.id]);
+
+  const fetchFavorites = async () => {
+      if (!user) return;
+      const { data } = await supabase
+          .from('sns_board_favorites')
+          .select('thread_id')
+          .eq('user_id', user.id);
+      if (data) {
+          setFavorites(new Set(data.map(f => f.thread_id)));
+      }
+  };
 
   const fetchThreads = async () => {
     setIsLoading(true);
@@ -56,6 +75,36 @@ export default function BoardPage() {
     } else {
         setShowRankModal(true);
     }
+  };
+
+  const toggleFavorite = async (e: React.MouseEvent, threadId: string) => {
+      e.stopPropagation();
+      if (!user) return;
+      
+      const isFavorited = favorites.has(threadId);
+      
+      // Optimistic update
+      setFavorites(prev => {
+          const next = new Set(prev);
+          if (isFavorited) {
+              next.delete(threadId);
+          } else {
+              next.add(threadId);
+          }
+          return next;
+      });
+      
+      if (isFavorited) {
+          await supabase
+              .from('sns_board_favorites')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('thread_id', threadId);
+      } else {
+          await supabase
+              .from('sns_board_favorites')
+              .insert({ user_id: user.id, thread_id: threadId });
+      }
   };
 
   const handleCreateThread = async () => {
@@ -94,6 +143,13 @@ export default function BoardPage() {
       return `${days}日前`;
   };
 
+  const filteredThreads = threads.filter(t => {
+      if (activeTab === 'favorites') {
+          return favorites.has(t.id);
+      }
+      return true;
+  });
+
   return (
     <div className="min-h-screen bg-[#F9F9F9] pb-32">
       {/* Header */}
@@ -121,21 +177,43 @@ export default function BoardPage() {
              <span className="text-xs font-bold tracking-widest uppercase group-hover:text-white transition-colors">新規スレッド作成</span>
           </button>
 
+          <div className="flex mb-4 border-b border-[#E5E5E5]">
+             <button 
+                onClick={() => setActiveTab('all')}
+                className={`flex-1 py-3 text-xs font-bold tracking-widest uppercase transition-colors relative ${activeTab === 'all' ? 'text-black' : 'text-[#777777] hover:text-black'}`}
+             >
+                すべて
+                {activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black"></div>}
+             </button>
+             <button 
+                onClick={() => setActiveTab('favorites')}
+                className={`flex-1 py-3 text-xs font-bold tracking-widest uppercase transition-colors relative ${activeTab === 'favorites' ? 'text-black' : 'text-[#777777] hover:text-black'}`}
+             >
+                お気に入り
+                {activeTab === 'favorites' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black"></div>}
+             </button>
+          </div>
+
           <div className="space-y-3">
               {isLoading ? (
                   <div className="flex justify-center py-20">
                     <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
                   </div>
-              ) : threads.length > 0 ? (
-                  threads.map(thread => (
+              ) : filteredThreads.length > 0 ? (
+                  filteredThreads.map(thread => (
                       <div 
                          key={thread.id}
                          onClick={() => handleThreadClick(thread.id)}
                          className="bg-white border border-[#E5E5E5] p-4 cursor-pointer hover:border-black transition-colors"
                       >
-                         <h3 className="font-bold text-sm tracking-widest text-black mb-3 line-clamp-2 leading-relaxed">
-                            {thread.title}
-                         </h3>
+                         <div className="flex items-start justify-between mb-3">
+                             <h3 className="font-bold text-sm tracking-widest text-black line-clamp-2 leading-relaxed flex-1 pr-4">
+                                {thread.title}
+                             </h3>
+                             <button onClick={(e) => toggleFavorite(e, thread.id)} className="p-1 -mr-1 -mt-1 text-[#E5E5E5] hover:text-[#E02424] transition-colors flex-shrink-0">
+                                 <Star size={18} className={favorites.has(thread.id) ? 'fill-[#E02424] text-[#E02424]' : 'text-[#CCC]'} />
+                             </button>
+                         </div>
                          <div className="flex items-center justify-between text-[10px] text-[#777777] tracking-widest">
                             <div className="flex items-center gap-1">
                                <MessageCircle size={12} className="stroke-[1.5]" />
