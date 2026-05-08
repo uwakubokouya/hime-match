@@ -142,7 +142,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
           // Update thread timestamp and count via RPC or trigger. 
           // For now, we rely on Supabase trigger if created, or just manual update.
           await supabase.from('sns_board_threads').update({ 
-              last_post_at: new Date().toISOString() 
+              last_post_at: new Date().toISOString(),
+              post_count: posts.length + 1
           }).eq('id', id);
       } else {
           console.error(error);

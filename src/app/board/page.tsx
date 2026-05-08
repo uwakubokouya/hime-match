@@ -33,7 +33,7 @@ export default function BoardPage() {
     setIsLoading(true);
     const { data, error } = await supabase
         .from('sns_board_threads')
-        .select('*')
+        .select('*, sns_board_posts(count)')
         .order('last_post_at', { ascending: false });
         
     if (!error && data) {
@@ -139,7 +139,7 @@ export default function BoardPage() {
                          <div className="flex items-center justify-between text-[10px] text-[#777777] tracking-widest">
                             <div className="flex items-center gap-1">
                                <MessageCircle size={12} className="stroke-[1.5]" />
-                               <span>{thread.post_count || 0}件</span>
+                               <span>{thread.sns_board_posts?.[0]?.count || thread.post_count || 0}件</span>
                             </div>
                             <span>更新: {formatTimeAgo(thread.last_post_at || thread.updated_at)}</span>
                          </div>
