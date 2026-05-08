@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { BarChart3, Bell, ShieldAlert, Settings, X, Search, Trash2, Clock, Users, Database, Star } from "lucide-react";
 import Link from "next/link";
+import { calculateUserRank } from '@/providers/UserProvider';
 
 interface AdminHomeContentProps {
   activeTab: string;
@@ -439,10 +440,27 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
                     }}
                   />
                   <div>
-                    <p className="text-xs font-bold tracking-widest flex items-center gap-2">
-                      {c.name || '名無し'}
+                    <div className="text-xs font-bold tracking-widest flex items-center gap-2 flex-wrap">
+                      <span>{c.name || '名無し'}</span>
+                      {c.is_vip && (
+                        <img src="/images/vip-crown.png" alt="VIP" className="h-4 object-contain" />
+                      )}
+                      {(() => {
+                         const rank = calculateUserRank(c.points || 0);
+                         return (
+                           <span className={`text-[9px] border px-1.5 py-0.5 uppercase font-bold tracking-widest shadow-sm ${
+                               rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
+                               rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
+                               rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
+                               rank === 'Bronze' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#CD7F32] border-[#CD7F32]' :
+                               'bg-[#F9F9F9] text-[#555] border-[#E5E5E5]'
+                           }`}>
+                             {rank}
+                           </span>
+                         );
+                      })()}
                       {c.status === 'banned' && <span className="bg-[#E02424] text-white text-[8px] px-1 py-0.5 rounded-sm">BAN</span>}
-                    </p>
+                    </div>
                     <p className="text-[10px] text-[#777] mt-1 flex items-center gap-2">
                       {c.phone || '電話番号未登録'}
                       {c.report_count > 0 && <span className="text-[#E02424] font-bold tracking-widest bg-[#FFF0F5] px-1 py-0.5">通報: {c.report_count}回</span>}
@@ -647,8 +665,27 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
                   }}
                 />
                 <div className="text-center">
-                  <p className="text-sm font-bold tracking-widest">{selectedUser.name || '名無し'}</p>
-                  <p className="text-[10px] text-[#777] mt-1">{selectedUser.phone || '電話番号未登録'}</p>
+                  <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
+                    <p className="text-sm font-bold tracking-widest">{selectedUser.name || '名無し'}</p>
+                    {selectedUser.is_vip && (
+                      <img src="/images/vip-crown.png" alt="VIP" className="h-4 object-contain" />
+                    )}
+                    {(() => {
+                       const rank = calculateUserRank(selectedUser.points || 0);
+                       return (
+                         <span className={`text-[9px] border px-1.5 py-0.5 uppercase font-bold tracking-widest shadow-sm ${
+                             rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
+                             rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
+                             rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
+                             rank === 'Bronze' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#CD7F32] border-[#CD7F32]' :
+                             'bg-[#F9F9F9] text-[#555] border-[#E5E5E5]'
+                         }`}>
+                           {rank}
+                         </span>
+                       );
+                    })()}
+                  </div>
+                  <p className="text-[10px] text-[#777]">{selectedUser.phone || '電話番号未登録'}</p>
                   <p className="text-[10px] text-[#999] mt-2">登録日時: {formatDate(selectedUser.created_at)}</p>
                   <p className={`text-[10px] mt-1 font-bold ${selectedUser.report_count > 0 ? 'text-[#E02424]' : 'text-[#555]'}`}>
                      通報回数: {selectedUser.report_count || 0}回
