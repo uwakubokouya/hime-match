@@ -956,7 +956,33 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         .order('created_at', { ascending: false });
 
      if (!error && data) {
-         setFollowersList(data);
+         let visibleFollowers = data;
+         
+         const isOwnProfile = user?.id === id || user?.id === resolvedCastId;
+         const isManagement = ['store', 'admin', 'management', 'system'].includes(user?.role || '');
+         
+         // 第三者が見る場合、推しキャスト非公開のユーザーを除外する
+         if (!isOwnProfile && !isManagement) {
+             const followerIds = data.map(f => f.follower_id);
+             if (followerIds.length > 0) {
+                 const { data: prefsData } = await supabase
+                     .from('sns_user_preferences')
+                     .select('user_id, following_casts')
+                     .in('user_id', followerIds);
+                     
+                 if (prefsData) {
+                     const hiddenUserIds = new Set(
+                         prefsData
+                             .filter(p => p.following_casts?.includes('HIDE_FOLLOWING_CASTS'))
+                             .map(p => p.user_id)
+                     );
+                     
+                     visibleFollowers = data.filter(f => !hiddenUserIds.has(f.follower_id));
+                 }
+             }
+         }
+         
+         setFollowersList(visibleFollowers);
      }
      setIsLoadingFollowers(false);
   };
@@ -1559,12 +1585,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
         <div className="flex items-center justify-between text-xs mb-8 tracking-widest text-[#777777] border-y border-[#E5E5E5] py-4">
             <button 
-                onClick={() => {
-                   if (user?.id === id || user?.id === resolvedCastId) {
-                       handleShowFollowers();
-                   }
-                }}
-                disabled={cast.followers === 0 || (user?.id !== id && user?.id !== resolvedCastId)}
+                onClick={() => handleShowFollowers()}
+                disabled={cast.followers === 0}
                 className="flex gap-1.5 items-baseline disabled:opacity-100 disabled:cursor-default hover:opacity-70 transition-opacity whitespace-nowrap"
             >
                 <strong className="text-black font-medium">{cast.followers}</strong> フォロワー
@@ -2380,8 +2402,10 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                        {followersList.map((follower) => {
                            const isLiked = likedFollowerIds.has(follower.follower_id);
                            return (
-                               <div 
+                               <Link 
+                                  href={`/cast/${follower.follower_id}`}
                                   key={follower.follower_id}
+                                  onClick={() => setShowFollowersModal(false)}
                                   className="bg-white p-4 flex items-center gap-4 hover:bg-[#FCFCFC] transition-colors"
                                >
                                   <div className="shrink-0 w-12 h-12 bg-[#F9F9F9] overflow-hidden border border-[#E5E5E5]">
@@ -2401,7 +2425,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                            </span>
                                       </div>
                                   </div>
-                               </div>
+                               </Link>
                            );
                        })}
                     </div>
