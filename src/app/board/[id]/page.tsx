@@ -214,7 +214,10 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       {/* Input Area */}
-      <div className="fixed bottom-[83px] w-full max-w-md mx-auto bg-white border-t border-[#E5E5E5] p-3 flex gap-2 items-end z-40">
+      <div 
+         className="fixed w-full max-w-md mx-auto bg-white border-t border-[#E5E5E5] p-3 flex gap-2 items-end z-40"
+         style={{ bottom: 'calc(59px + env(safe-area-inset-bottom))' }}
+      >
          <div className="flex-1 bg-[#F9F9F9] border border-[#E5E5E5] p-2 flex items-center min-h-[44px]">
              <textarea 
                  value={inputText}
