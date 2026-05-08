@@ -31,6 +31,7 @@ export default function AdminFeedbackPage() {
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
+  const [isBanning, setIsBanning] = useState(false);
   const [resultModal, setResultModal] = useState<{ isOpen: boolean; type: 'success' | 'error'; message: string }>({ isOpen: false, type: 'success', message: "" });
   const [deleteReviewConfirm, setDeleteReviewConfirm] = useState<{ isOpen: boolean; reviewId: string | null; feedbackId: string | null }>({ isOpen: false, reviewId: null, feedbackId: null });
 
@@ -185,6 +186,29 @@ export default function AdminFeedbackPage() {
     }
     
     setIsResetting(false);
+  };
+
+  const toggleBan = async () => {
+    if (!selectedUser?.id) return;
+    
+    const newStatus = selectedUser.status === 'banned' ? 'active' : 'banned';
+    const actionText = newStatus === 'banned' ? '利用停止(BAN)にする' : 'BANを解除する';
+    
+    if (!window.confirm(`このユーザーを${actionText}してもよろしいですか？`)) return;
+    
+    setIsBanning(true);
+    const { error } = await supabase
+      .from('sns_profiles')
+      .update({ status: newStatus })
+      .eq('id', selectedUser.id);
+      
+    if (error) {
+      setResultModal({ isOpen: true, type: 'error', message: `ステータスの更新に失敗しました。\n${error.message}` });
+    } else {
+      setSelectedUser({ ...selectedUser, status: newStatus });
+      setResultModal({ isOpen: true, type: 'success', message: `アカウントを${newStatus === 'banned' ? '停止(BAN)' : '復旧'}しました。` });
+    }
+    setIsBanning(false);
   };
 
   if (!user?.is_admin) return null;
@@ -355,15 +379,43 @@ export default function AdminFeedbackPage() {
                       <div><span className="text-[10px] text-[#777] block mb-0.5">自己紹介</span>
                          <p className="whitespace-pre-wrap">{selectedUser.bio || '未設定'}</p>
                       </div>
-                      <div><span className="text-[10px] text-[#777] block mb-0.5">登録日時</span>{new Date(selectedUser.created_at).toLocaleString('ja-JP')}</div>
+                      <div className="flex justify-between border-t border-[#E5E5E5] pt-3 mt-3">
+                         <div>
+                            <span className="text-[10px] text-[#777] block mb-0.5">登録日時</span>
+                            {new Date(selectedUser.created_at).toLocaleString('ja-JP')}
+                         </div>
+                         <div>
+                            <span className="text-[10px] text-[#777] block mb-0.5">通報された回数</span>
+                            <span className={`font-bold ${selectedUser.report_count > 0 ? 'text-[#E02424]' : 'text-black'}`}>
+                               {selectedUser.report_count || 0} 回
+                            </span>
+                         </div>
+                      </div>
                    </div>
 
-                   {/* Password Reset Button */}
-                   <div className="pt-2">
+                   {/* Actions Button */}
+                   <div className="pt-2 space-y-2">
+                     <button
+                       onClick={toggleBan}
+                       disabled={isBanning}
+                       className={`w-full py-3 text-[10px] font-bold tracking-widest transition-colors flex items-center justify-center gap-2 ${
+                          selectedUser.status === 'banned' 
+                          ? 'bg-black text-white hover:bg-[#333]' 
+                          : 'bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] hover:bg-[#E02424] hover:text-white'
+                       }`}
+                     >
+                       {isBanning ? (
+                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                       ) : selectedUser.status === 'banned' ? (
+                         '利用停止(BAN)を解除する'
+                       ) : (
+                         'このアカウントを利用停止(BAN)にする'
+                       )}
+                     </button>
                      <button
                        onClick={handleResetPasswordClick}
                        disabled={isResetting}
-                       className="w-full py-3 bg-white border border-[#E02424] text-[#E02424] text-[10px] font-bold tracking-widest hover:bg-[#E02424] hover:text-white transition-colors flex items-center justify-center gap-2"
+                       className="w-full py-3 bg-white border border-[#333] text-[#333] text-[10px] font-bold tracking-widest hover:bg-[#333] hover:text-white transition-colors flex items-center justify-center gap-2"
                      >
                        {isResetting ? (
                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
