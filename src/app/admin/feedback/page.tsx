@@ -350,9 +350,16 @@ export default function AdminFeedbackPage() {
                   <div>
                     <h3 className="text-sm font-bold tracking-widest flex items-center gap-2">
                        <button 
-                         onClick={() => handleNameClick(fb.user_id)}
-                         className={`hover:text-[#777] transition-colors ${fb.user_id ? 'cursor-pointer underline decoration-[#CCC] underline-offset-4' : 'cursor-default'}`}
-                         disabled={!fb.user_id}
+                         onClick={() => {
+                             const targetMatch = fb.content.match(/ユーザーID:\s*([a-f0-9\-]{36})/);
+                             if (targetMatch && targetMatch[1]) {
+                                 handleNameClick(targetMatch[1]);
+                             } else {
+                                 handleNameClick(fb.user_id);
+                             }
+                         }}
+                         className={`hover:text-[#777] transition-colors ${(fb.user_id || fb.content.includes('ユーザーID:')) ? 'cursor-pointer underline decoration-[#CCC] underline-offset-4' : 'cursor-default'}`}
+                         disabled={!fb.user_id && !fb.content.includes('ユーザーID:')}
                        >
                          <span className="flex items-center gap-1">
                            {fb.name || "名無し"}
