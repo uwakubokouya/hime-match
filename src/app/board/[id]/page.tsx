@@ -162,7 +162,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       {/* Posts */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-36">
          {posts.map((post) => {
              const isMe = post.user_id === user.id;
              const isSystem = post.sns_profiles?.role === 'system' || post.sns_profiles?.role === 'admin';
@@ -214,7 +214,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       {/* Input Area */}
-      <div className="fixed bottom-0 w-full max-w-md mx-auto bg-white border-t border-[#E5E5E5] p-3 flex gap-2 items-end z-40" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
+      <div className="fixed bottom-[83px] w-full max-w-md mx-auto bg-white border-t border-[#E5E5E5] p-3 flex gap-2 items-end z-40">
          <div className="flex-1 bg-[#F9F9F9] border border-[#E5E5E5] p-2 flex items-center min-h-[44px]">
              <textarea 
                  value={inputText}
