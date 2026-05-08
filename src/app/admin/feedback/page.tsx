@@ -350,16 +350,9 @@ export default function AdminFeedbackPage() {
                   <div>
                     <h3 className="text-sm font-bold tracking-widest flex items-center gap-2">
                        <button 
-                         onClick={() => {
-                             const targetMatch = fb.content.match(/ユーザーID:\s*([a-f0-9\-]{36})/);
-                             if (targetMatch && targetMatch[1]) {
-                                 handleNameClick(targetMatch[1]);
-                             } else {
-                                 handleNameClick(fb.user_id);
-                             }
-                         }}
-                         className={`hover:text-[#777] transition-colors ${(fb.user_id || fb.content.includes('ユーザーID:')) ? 'cursor-pointer underline decoration-[#CCC] underline-offset-4' : 'cursor-default'}`}
-                         disabled={!fb.user_id && !fb.content.includes('ユーザーID:')}
+                         onClick={() => handleNameClick(fb.user_id)}
+                         className={`hover:text-[#777] transition-colors ${fb.user_id ? 'cursor-pointer underline decoration-[#CCC] underline-offset-4' : 'cursor-default'}`}
+                         disabled={!fb.user_id}
                        >
                          <span className="flex items-center gap-1">
                            {fb.name || "名無し"}
@@ -446,6 +439,23 @@ export default function AdminFeedbackPage() {
                                       className="px-4 py-2 bg-black text-white text-[10px] tracking-widest font-bold hover:bg-black/80 transition-colors"
                                   >
                                       スレッドを確認する
+                                  </button>
+                              </div>
+                          );
+                      }
+                      return null;
+                  })()}
+                  {(() => {
+                      const targetUserMatch = fb.content.match(/ユーザーID:\s*([a-f0-9\-]{36})/);
+                      if (fb.content.includes('[通報]') && targetUserMatch && targetUserMatch[1]) {
+                          return (
+                              <div className="mt-4 border border-[#E5E5E5] bg-[#FFF5F5] p-4 flex items-center justify-between">
+                                  <p className="text-[10px] tracking-widest text-[#E02424] uppercase font-bold">対象のユーザー</p>
+                                  <button
+                                      onClick={() => handleNameClick(targetUserMatch[1])}
+                                      className="px-4 py-2 bg-[#E02424] text-white text-[10px] tracking-widest font-bold hover:bg-[#C81E1E] transition-colors"
+                                  >
+                                      ユーザーを確認する
                                   </button>
                               </div>
                           );
