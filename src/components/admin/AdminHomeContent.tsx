@@ -21,6 +21,13 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [customerPage, setCustomerPage] = useState(1);
   const [hasMoreCustomers, setHasMoreCustomers] = useState(true);
+  const [genericConfirm, setGenericConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    iconType: 'warning' | 'ban' | 'trash';
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {}, iconType: 'warning' });
 
   // Monitoring Tab State
   const [posts, setPosts] = useState<any[]>([]);
@@ -138,48 +145,67 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
     setIsResetting(false);
   };
 
-  const sendWarning = async () => {
+  const sendWarning = () => {
     if (!selectedUser?.id) return;
-    if (!confirm(`${selectedUser.name || 'このユーザー'}に警告メッセージを送信しますか？`)) return;
     
-    setIsResetting(true); // Re-using resetting state for loading
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    if (!currentUser) {
-       setStatusMessage("エラー: 管理者情報を取得できませんでした。");
-       setIsResetting(false);
-       return;
-    }
+    setGenericConfirm({
+      isOpen: true,
+      title: "警告の確認",
+      message: `${selectedUser.name || 'このユーザー'}に警告メッセージを送信しますか？`,
+      iconType: 'warning',
+      onConfirm: async () => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        setIsResetting(true); // Re-using resetting state for loading
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        
+        if (!currentUser) {
+           setStatusMessage("エラー: 管理者情報を取得できませんでした。");
+           setIsResetting(false);
+           return;
+        }
 
-    const warningMessage = `【システム警告】\nあなたのアカウントに対して複数回の通報が確認されました。\n利用規約に違反する行為が継続した場合、アカウントを停止する可能性がありますのでご注意ください。`;
-    
-    const { error } = await supabase.from('sns_messages').insert({
-       sender_id: currentUser.id,
-       receiver_id: selectedUser.id,
-       content: warningMessage,
-       is_read: false
+        const warningMessage = `【システム警告】\nあなたのアカウントに対して複数回の通報が確認されました。\n利用規約に違反する行為が継続した場合、アカウントを停止する可能性がありますのでご注意ください。`;
+        
+        const { error } = await supabase.from('sns_messages').insert({
+           sender_id: currentUser.id,
+           receiver_id: selectedUser.id,
+           content: warningMessage,
+           is_read: false
+        });
+
+        if (error) {
+           setStatusMessage("エラー: 警告メッセージの送信に失敗しました。");
+        } else {
+           setStatusMessage("警告メッセージを送信しました。");
+        }
+        setIsResetting(false);
+      }
     });
-
-    if (error) {
-       setStatusMessage("エラー: 警告メッセージの送信に失敗しました。");
-    } else {
-       setStatusMessage("警告メッセージを送信しました。");
-    }
-    setIsResetting(false);
   };
 
-  const toggleBan = async () => {
+  const toggleBan = () => {
     if (!selectedUser?.id) return;
     const newStatus = selectedUser.status === 'banned' ? 'active' : 'banned';
-    const { error } = await supabase
-      .from('sns_profiles')
-      .update({ status: newStatus })
-      .eq('id', selectedUser.id);
-    if (!error) {
-      setSelectedUser({ ...selectedUser, status: newStatus });
-      setCustomers(customers.map(c => c.id === selectedUser.id ? { ...c, status: newStatus } : c));
-      setStatusMessage(newStatus === 'banned' ? "アカウントを停止しました。" : "アカウントを復旧しました。");
-    }
+    const actionText = newStatus === 'banned' ? '利用停止(BAN)にする' : 'BANを解除する';
+    
+    setGenericConfirm({
+      isOpen: true,
+      title: "BANの確認",
+      message: `このユーザーを${actionText}してもよろしいですか？`,
+      iconType: 'ban',
+      onConfirm: async () => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        const { error } = await supabase
+          .from('sns_profiles')
+          .update({ status: newStatus })
+          .eq('id', selectedUser.id);
+        if (!error) {
+          setSelectedUser({ ...selectedUser, status: newStatus });
+          setCustomers(customers.map(c => c.id === selectedUser.id ? { ...c, status: newStatus } : c));
+          setStatusMessage(newStatus === 'banned' ? "アカウントを停止しました。" : "アカウントを復旧しました。");
+        }
+      }
+    });
   };
 
   // ==========================================
@@ -231,15 +257,22 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
     setIsLoading(false);
   };
 
-  const deletePost = async (postId: string) => {
-    if (!confirm('この投稿を削除してよろしいですか？')) return;
-    const { error } = await supabase.from('sns_posts').delete().eq('id', postId);
-    if (!error) {
-       setPosts(posts.filter(p => p.id !== postId));
-       alert('投稿を削除しました。');
-    } else {
-       alert('エラーが発生しました: ' + error.message);
-    }
+  const deletePost = (postId: string) => {
+    setGenericConfirm({
+      isOpen: true,
+      title: "投稿の削除確認",
+      message: "この投稿を削除してよろしいですか？\n※この操作は元に戻せません",
+      iconType: 'trash',
+      onConfirm: async () => {
+        setGenericConfirm(prev => ({ ...prev, isOpen: false }));
+        const { error } = await supabase.from('sns_posts').delete().eq('id', postId);
+        if (!error) {
+           setPosts(posts.filter(p => p.id !== postId));
+        } else {
+           alert('エラーが発生しました: ' + error.message);
+        }
+      }
+    });
   };
 
   // ==========================================
@@ -645,6 +678,38 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
               onClick={(e) => e.stopPropagation()}
             />
           )}
+        </div>
+      )}
+
+      {/* Generic Confirm Modal */}
+      {genericConfirm.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm border border-black shadow-2xl relative overflow-hidden">
+            <div className="p-6 text-center">
+              <h2 className="text-sm font-bold tracking-widest text-[#E02424] mb-3 flex items-center justify-center gap-2">
+                {genericConfirm.iconType === 'trash' ? <Trash2 size={18} className="stroke-[2]" /> : null}
+                {genericConfirm.title}
+              </h2>
+              <p className="text-xs text-[#333] leading-relaxed tracking-widest mb-6 whitespace-pre-wrap">
+                {genericConfirm.message}
+              </p>
+              
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setGenericConfirm(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-3 bg-[#F9F9F9] border border-[#E5E5E5] text-[#777] text-[11px] font-bold tracking-widest hover:bg-[#EEEEEE] transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button 
+                  onClick={genericConfirm.onConfirm}
+                  className="flex-1 py-3 bg-[#E02424] text-white text-[11px] font-bold tracking-widest shadow-md hover:bg-[#C81E1E] transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
