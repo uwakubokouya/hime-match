@@ -428,6 +428,23 @@ export default function AdminFeedbackPage() {
                       )}
                     </div>
                   )}
+                  {(() => {
+                      const threadMatch = fb.content.match(/\(ID:\s*([a-f0-9\-]{36})\)/);
+                      if (fb.content.includes('[掲示板スレッド') && threadMatch && threadMatch[1]) {
+                          return (
+                              <div className="mt-4 border border-[#E5E5E5] bg-white p-4 flex items-center justify-between">
+                                  <p className="text-[10px] tracking-widest text-[#777] uppercase">対象のスレッド</p>
+                                  <button
+                                      onClick={() => router.push(`/board/${threadMatch[1]}`)}
+                                      className="px-4 py-2 bg-black text-white text-[10px] tracking-widest font-bold hover:bg-black/80 transition-colors"
+                                  >
+                                      スレッドを確認する
+                                  </button>
+                              </div>
+                          );
+                      }
+                      return null;
+                  })()}
                 </div>
               </div>
             ))}
