@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
-import { Home, Search, SquarePen, User, Menu, Bell, MessageSquare, BarChart3 } from 'lucide-react';
+import { Home, Search, SquarePen, User, Menu, Bell, MessageSquare, BarChart3, MessageCircle } from 'lucide-react';
 import { useUser } from '@/providers/UserProvider';
 import { usePathname, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -112,6 +112,13 @@ export default function BottomNav() {
         <Link href={searchPath} className="flex flex-col items-center gap-1 hover:text-black transition-colors">
           <Search size={20} className={pathname === searchPath || pathname === '/search' ? 'text-black stroke-[2.5]' : 'stroke-2'} />
           <span className={`text-[10px] font-normal tracking-widest ${pathname === searchPath || pathname === '/search' ? 'text-black font-bold' : ''}`}>探す</span>
+        </Link>
+      )}
+      
+      {role !== 'cast' && role !== 'store' && role !== 'admin' && role !== 'system' && (
+        <Link href="/board" className="flex flex-col items-center gap-1 hover:text-black transition-colors">
+          <MessageCircle size={20} className={pathname === '/board' || pathname?.startsWith('/board/') ? 'text-black stroke-[2.5]' : 'stroke-2'} />
+          <span className={`text-[10px] font-normal tracking-widest ${pathname === '/board' || pathname?.startsWith('/board/') ? 'text-black font-bold' : ''}`}>掲示板</span>
         </Link>
       )}
       
