@@ -3,7 +3,7 @@ import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Send, MoreHorizontal, Ban, BellOff, Flag, User as UserIcon, Pencil, Trash2, Heart, Lock, Calendar, X, HelpCircle, Star, ImagePlus } from 'lucide-react';
-import { useUser } from '@/providers/UserProvider';
+import { useUser, calculateUserRank } from '@/providers/UserProvider';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -19,7 +19,7 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [customName, setCustomName] = useState("");
-  const [partnerProfile, setPartnerProfile] = useState<{name: string, avatar_url: string | null, bio?: string, age_group?: string, role?: string, is_vip?: boolean} | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<{name: string, avatar_url: string | null, bio?: string, age_group?: string, role?: string, is_vip?: boolean, rank?: string} | null>(null);
   
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [selectedReviewData, setSelectedReviewData] = useState<any>(null);
@@ -183,9 +183,9 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
     if (!isUuid) return;
 
     const fetchPartnerProfile = async () => {
-       const { data } = await supabase.from('sns_profiles').select('name, avatar_url, bio, age_group, phone, role, is_vip').eq('id', id).single();
+       const { data } = await supabase.from('sns_profiles').select('name, avatar_url, bio, age_group, phone, role, is_vip, points').eq('id', id).single();
        if (data) {
-          setPartnerProfile({ name: data.name, avatar_url: data.avatar_url, bio: data.bio, age_group: data.age_group, role: data.role, is_vip: data.is_vip });
+          setPartnerProfile({ name: data.name, avatar_url: data.avatar_url, bio: data.bio, age_group: data.age_group, role: data.role, is_vip: data.is_vip, rank: calculateUserRank(data.points || 0) });
           if (!customName) {
              const saved = localStorage.getItem(`nickname_${id}`);
              setCustomName(saved || data.name || "名称未設定");
@@ -475,13 +475,25 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
                    </button>
                 )}
             </div>
-            {user?.role === 'cast' ? (
-                <span className="text-[10px] text-[#777777] tracking-widest mt-0.5">お客様</span>
-            ) : (
+            {partnerProfile?.role === 'cast' ? (
                 <span className="text-[10px] text-[#777777] tracking-widest mt-1 inline-block border border-[#E5E5E5] px-2 py-0.5 bg-[#F9F9F9]">
                     {nextShift ? nextShift : "出勤未定"}
                 </span>
-            )}
+            ) : partnerProfile?.role === 'customer' ? (
+                partnerProfile?.rank ? (
+                    <div className={`mt-1 inline-block px-2 py-0.5 text-[9px] font-bold tracking-[0.2em] uppercase border whitespace-nowrap shadow-sm ${
+                        partnerProfile.rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
+                        partnerProfile.rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
+                        partnerProfile.rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
+                        partnerProfile.rank === 'Bronze' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#CD7F32] border-[#CD7F32]' :
+                        'bg-[#F9F9F9] text-[#555] border-[#E5E5E5]'
+                    }`}>
+                        {partnerProfile.rank}
+                    </div>
+                ) : (
+                    <span className="text-[10px] text-[#777777] tracking-widest mt-0.5">お客様</span>
+                )
+            ) : null}
         </div>
         <div className="relative">
             <button 
@@ -618,7 +630,8 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
          {(() => {
             const hasSystemAccept = messages.some(m => m.content?.startsWith('[SYSTEM_ACCEPT]'));
             const isBronzeAndVip = user?.role === 'customer' && (user.points ?? 0) >= 100 && user.is_vip;
-            const isMatch = hasSystemAccept || isBronzeAndVip || partnerProfile?.role === 'store' || partnerProfile?.role === 'system' || user?.role === 'store' || user?.role === 'system';
+            const isVipToVip = user?.role === 'customer' && user?.is_vip && partnerProfile?.role === 'customer' && partnerProfile?.is_vip;
+            const isMatch = hasSystemAccept || isBronzeAndVip || isVipToVip || partnerProfile?.role === 'store' || partnerProfile?.role === 'system' || user?.role === 'store' || user?.role === 'system';
             
             if (!isMatch) {
                if (user?.role === 'cast') {
@@ -653,7 +666,7 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
                      <div className="flex items-center gap-1.5 text-[#777777]">
                         <Lock size={12} className="stroke-[1.5]" />
                         <span className="text-[10px] tracking-widest font-bold">
-                           キャストからの承認を待っています...
+                           {partnerProfile?.role === 'customer' ? "VIP会員同士のみメッセージが可能です" : "キャストからの承認を待っています..."}
                         </span>
                      </div>
                   </div>
@@ -675,7 +688,7 @@ export default function MessageRoomPage({ params }: { params: Promise<{ id: stri
                      </div>
                   )}
                   <form onSubmit={handleSend} className="flex gap-2 items-center w-full">
-                     {user?.role === 'cast' && (
+                     {(user?.role === 'cast' || isVipToVip) && (
                         <label className="flex items-center justify-center w-10 h-10 text-black hover:text-[#777777] transition-colors cursor-pointer shrink-0">
                            <ImagePlus size={20} className="stroke-[1.5]" />
                            <input 

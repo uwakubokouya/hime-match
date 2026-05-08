@@ -894,7 +894,9 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
     // 自身のプレビュー時は何も起きない
     if (user?.id === id) return;
 
-    if (!acceptsDms) {
+    const isVipToVipMode = isCustomerProfile && user?.is_vip && profileData.is_vip;
+
+    if (!acceptsDms && !isVipToVipMode) {
       setShowDMDisabledModal(true);
       return;
     }
@@ -910,7 +912,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
     
     // 客アカウントの場合はDM（注意事項）へ進む
     if (user.role === 'customer') {
-      if (!isFollowing) {
+      if (!isFollowing && !isVipToVipMode) {
           setShowFollowPromptModal(true);
           return;
       }
@@ -1193,11 +1195,20 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
              
              <div className="text-xs text-[#333333] tracking-widest leading-relaxed mb-8 flex flex-col gap-4">
                 <p>
-                  メッセージを送るには、まずこのキャストを <strong>フォロー</strong> する必要があります。
+                  メッセージを送るには、まずこの{isCustomerProfile ? 'ユーザー' : 'キャスト'}を <strong>フォロー</strong> する必要があります。
                 </p>
                 <p>
-                  フォローすることで、キャストがあなたのプロフィールを確認し、「承認」しやすくなります。<br/>
-                  さっそくフォローしてメッセージ設定に進みますか？
+                  {isCustomerProfile ? (
+                     <>
+                        フォローすることで、お互いに円滑なコミュニケーションを取りやすくなります。<br/>
+                        さっそくフォローしてメッセージ画面に進みますか？
+                     </>
+                  ) : (
+                     <>
+                        フォローすることで、キャストがあなたのプロフィールを確認し、「承認」しやすくなります。<br/>
+                        さっそくフォローしてメッセージ設定に進みますか？
+                     </>
+                  )}
                 </p>
              </div>
              
@@ -1249,6 +1260,18 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                   あらかじめご容赦いただけますと幸いです。<br />
                   なお、ご予約や空き状況の確認につきましては、お電話またはネット予約にて迅速に対応させていただきます。<br />
                   ぜひそちらをご利用くださいませ。
+                </>
+              ) : isCustomerProfile ? (
+                <>
+                  <span className="font-bold">【DM機能に関するお願い】</span><br />
+                  いつもご利用いただきありがとうございます。<br />
+                  皆様に安心してご利用いただくため、DMご利用の際は以下の点にご配慮をお願いいたします。<br />
+                  <br />
+                  ・特定の個人を識別できる情報の掲載<br />
+                  ・過度な批判、誹謗中傷にあたる表現はお控えください。<br />
+                  <br />
+                  なお、著しく悪質と判断される内容や、法令に抵触する恐れがある投稿につきましては、提携弁護士と協議の上、然るべき措置を講じる場合がございます。<br />
+                  健全なコミュニティ運営のため、何卒ご理解とご協力のほどお願い申し上げます。
                 </>
               ) : (
                 "店舗外で会おうと誘う行為や連絡先を聞く行為等は禁止させて頂いております。違反が発覚した際は当社顧問弁護士の指導のもと、厳格な対処を取らせて頂きます。"
@@ -1390,11 +1413,11 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                         <Phone size={18} className="stroke-[1.5]" />
                     </button>
                 )}
-                {!isCustomerProfile && (
+                {(!isCustomerProfile || (isCustomerProfile && user?.is_vip && profileData.is_vip)) && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleMessage(); }} 
                   className={`p-2 rounded-none border transition-colors flex items-center justify-center ${
-                    acceptsDms 
+                    acceptsDms || (isCustomerProfile && user?.is_vip && profileData.is_vip)
                       ? 'bg-white text-black border-black hover:bg-black hover:text-white' 
                       : 'bg-[#F9F9F9] text-[#CCC] border-[#E5E5E5]'
                   }`}
