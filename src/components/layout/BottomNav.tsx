@@ -80,6 +80,7 @@ export default function BottomNav() {
   const searchPath = currentPref ? `/${currentPref}/search` : '/search';
   
   if (pathname === '/login' || pathname === '/register') return null;
+  if (pathname?.startsWith('/board/') && pathname !== '/board') return null;
 
   const isHomeActive = pathname === homePath || pathname === '/' || (role === 'cast' && pathname === `/cast/${user?.id}`);
 
