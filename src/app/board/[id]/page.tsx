@@ -21,6 +21,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [reportCategory, setReportCategory] = useState("");
   const [reportDetails, setReportDetails] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const reportOptions = [
     "暴言・誹謗中傷",
     "荒らし・スパム",
@@ -332,7 +333,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 
                 <div className="space-y-2 pt-4 border-t border-[#E5E5E5]">
-                   <label className="text-[10px] uppercase tracking-widest text-[#777777] block">Details (詳細)</label>
+                   <label className="text-[10px] uppercase tracking-widest text-[#777777] block">Details (任意)</label>
                    <textarea 
                      value={reportDetails}
                      onChange={e => setReportDetails(e.target.value)}
@@ -361,8 +362,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                   });
 
                   if (!error) {
-                      alert("通報を受け付けました。運営にて確認いたします。");
                       setShowReportModal(false);
+                      setShowSuccessModal(true);
                       setReportCategory("");
                       setReportDetails("");
                   } else {
@@ -374,6 +375,38 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                className="w-full py-4 text-xs tracking-widest flex items-center justify-center bg-black text-white hover:bg-black/80 transition-colors disabled:opacity-50"
              >
                通報を送信する
+             </button>
+           </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white w-full max-w-sm p-8 border border-[#E5E5E5] flex flex-col items-center relative shadow-sm">
+             <button 
+               onClick={() => setShowSuccessModal(false)}
+               className="absolute top-4 right-4 text-black hover:text-[#777777] transition-colors"
+             >
+               <X size={20} className="stroke-[1.5]" />
+             </button>
+             
+             <div className="w-12 h-12 rounded-full border border-black flex items-center justify-center text-black mb-4">
+                <Flag size={20} className="stroke-[1.5]" />
+             </div>
+             
+             <h3 className="text-sm font-bold tracking-widest mb-2 text-center text-black">
+               通報を受け付けました
+             </h3>
+             <p className="text-[10px] text-[#777777] tracking-widest leading-relaxed text-center mb-6">
+               ご報告ありがとうございます。<br />運営にて内容を確認いたします。
+             </p>
+             
+             <button 
+               onClick={() => setShowSuccessModal(false)}
+               className="w-full py-3 text-xs tracking-widest flex items-center justify-center bg-black text-white hover:bg-black/80 transition-colors"
+             >
+               閉じる
              </button>
            </div>
         </div>
