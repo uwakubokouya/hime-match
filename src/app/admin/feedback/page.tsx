@@ -32,6 +32,7 @@ export default function AdminFeedbackPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isBanning, setIsBanning] = useState(false);
+  const [isSendingWarning, setIsSendingWarning] = useState(false);
   const [resultModal, setResultModal] = useState<{ isOpen: boolean; type: 'success' | 'error'; message: string }>({ isOpen: false, type: 'success', message: "" });
   const [deleteReviewConfirm, setDeleteReviewConfirm] = useState<{ isOpen: boolean; reviewId: string | null; feedbackId: string | null }>({ isOpen: false, reviewId: null, feedbackId: null });
 
@@ -209,6 +210,36 @@ export default function AdminFeedbackPage() {
       setResultModal({ isOpen: true, type: 'success', message: `アカウントを${newStatus === 'banned' ? '停止(BAN)' : '復旧'}しました。` });
     }
     setIsBanning(false);
+  };
+
+  const sendWarning = async () => {
+    if (!selectedUser?.id) return;
+    if (!window.confirm(`${selectedUser.name || 'このユーザー'}に警告メッセージを送信しますか？`)) return;
+    
+    setIsSendingWarning(true);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    
+    if (!currentUser) {
+       setResultModal({ isOpen: true, type: 'error', message: "管理者情報を取得できませんでした。" });
+       setIsSendingWarning(false);
+       return;
+    }
+
+    const warningMessage = `【システム警告】\nあなたのアカウントに対して複数回の通報が確認されました。\n利用規約に違反する行為が継続した場合、アカウントを停止する可能性がありますのでご注意ください。`;
+    
+    const { error } = await supabase.from('sns_messages').insert({
+       sender_id: currentUser.id,
+       receiver_id: selectedUser.id,
+       content: warningMessage,
+       is_read: false
+    });
+
+    if (error) {
+       setResultModal({ isOpen: true, type: 'error', message: `警告メッセージの送信に失敗しました。\n${error.message}` });
+    } else {
+       setResultModal({ isOpen: true, type: 'success', message: "警告メッセージを送信しました。" });
+    }
+    setIsSendingWarning(false);
   };
 
   if (!user?.is_admin) return null;
@@ -395,6 +426,17 @@ export default function AdminFeedbackPage() {
 
                    {/* Actions Button */}
                    <div className="pt-2 space-y-2">
+                     <button
+                       onClick={sendWarning}
+                       disabled={isSendingWarning}
+                       className="w-full py-3 bg-[#FFF0F5] border border-[#FFC0CB] text-[#E02424] text-[10px] font-bold tracking-widest hover:bg-[#E02424] hover:text-white transition-colors flex items-center justify-center gap-2"
+                     >
+                       {isSendingWarning ? (
+                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                       ) : (
+                         '警告メッセージを送信する'
+                       )}
+                     </button>
                      <button
                        onClick={toggleBan}
                        disabled={isBanning}
