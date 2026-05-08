@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, Check, Mail, Phone, Clock, X, CheckCircle2, Copy, Trash2, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useUser } from "@/providers/UserProvider";
+import { useUser, calculateUserRank } from "@/providers/UserProvider";
 
 interface Feedback {
   id: string;
@@ -457,9 +457,24 @@ export default function AdminFeedbackPage() {
                      <img src={selectedUser.avatar_url || '/images/default-avatar.png'} alt="avatar" className="w-16 h-16 rounded-full object-cover border border-[#E5E5E5]" />
                      <div className="text-center">
                        <p className="text-sm font-bold tracking-widest">{selectedUser.name}</p>
-                       <span className="text-[10px] text-[#777] border border-[#E5E5E5] px-2 py-0.5 inline-block mt-1 bg-[#F9F9F9] uppercase">
-                         {selectedUser.role}
-                       </span>
+                       {selectedUser.role === 'customer' ? (() => {
+                          const rank = calculateUserRank(selectedUser.points || 0);
+                          return (
+                            <span className={`text-[10px] border px-2 py-0.5 inline-block mt-1 uppercase font-bold tracking-widest shadow-sm ${
+                                rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
+                                rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
+                                rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
+                                rank === 'Bronze' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#CD7F32] border-[#CD7F32]' :
+                                'bg-[#F9F9F9] text-[#555] border-[#E5E5E5]'
+                            }`}>
+                              {rank}
+                            </span>
+                          );
+                       })() : (
+                         <span className="text-[10px] text-[#777] border border-[#E5E5E5] px-2 py-0.5 inline-block mt-1 bg-[#F9F9F9] uppercase">
+                           {selectedUser.role}
+                         </span>
+                       )}
                      </div>
                    </div>
                    <div className="bg-[#F9F9F9] p-4 text-xs space-y-3 tracking-widest leading-relaxed border border-[#E5E5E5]">
