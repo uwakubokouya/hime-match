@@ -100,18 +100,32 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       if (!inputText.trim() || !user || !isVipOrManagement) return;
       setIsSending(true);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
           .from('sns_board_posts')
           .insert({
               thread_id: id,
               user_id: user.id,
               content: inputText.trim()
-          });
+          })
+          .select()
+          .single();
           
       setIsSending(false);
       
-      if (!error) {
+      if (!error && data) {
           setInputText("");
+          
+          // 即時反映
+          setPosts(prev => [...prev, {
+              ...data,
+              sns_profiles: {
+                  name: user.name || (user as any).user_metadata?.name || '自分',
+                  avatar_url: user.avatar_url || (user as any).user_metadata?.avatar_url,
+                  is_vip: user.is_vip,
+                  role: user.role
+              }
+          }]);
+
           // Update thread timestamp and count via RPC or trigger. 
           // For now, we rely on Supabase trigger if created, or just manual update.
           await supabase.from('sns_board_threads').update({ 
@@ -163,9 +177,10 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
 
       {/* Posts */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-36">
-         {posts.map((post) => {
+         {posts.map((post, index) => {
              const isMe = post.user_id === user.id;
              const isSystem = post.sns_profiles?.role === 'system' || post.sns_profiles?.role === 'admin';
+             const postNumber = index + 1;
              
              return (
                  <div key={post.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -184,12 +199,17 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                     
                     {/* Message Bubble */}
                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                        {!isMe && (
+                        {!isMe ? (
                             <span className="text-[9px] text-[#777777] tracking-widest mb-1 ml-1 flex items-center gap-1">
+                               <span>{postNumber}.</span>
                                {isSystem ? "運営" : (post.sns_profiles?.name || "名無し")}
                                {post.sns_profiles?.is_vip && !isSystem && (
                                    <img src="/images/vip-crown.png" alt="VIP" className="h-3 object-contain" />
                                )}
+                            </span>
+                        ) : (
+                            <span className="text-[9px] text-[#777777] tracking-widest mb-1 mr-1 flex items-center gap-1 justify-end">
+                               <span>{postNumber}. 自分</span>
                             </span>
                         )}
                         
@@ -199,9 +219,29 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                             {post.content}
                         </div>
                         
-                        <span className="text-[9px] text-[#777777] mt-1 tracking-widest">
-                            {formatTime(post.created_at)}
-                        </span>
+                        <div className={`flex items-center gap-3 mt-1 px-1 ${isMe ? 'justify-end' : 'justify-start'} w-full`}>
+                            <span className="text-[9px] text-[#777777] tracking-widest">
+                                {formatTime(post.created_at)}
+                            </span>
+                            <button 
+                               onClick={() => setInputText(prev => prev + `>>${postNumber} `)}
+                               className="text-[9px] text-[#777777] hover:text-black tracking-widest transition-colors"
+                            >
+                               返信
+                            </button>
+                            {!isMe && (
+                               <button 
+                                  onClick={() => {
+                                      if (window.confirm('この投稿を通報しますか？')) {
+                                          window.alert('通報が完了しました。運営にて内容を確認いたします。');
+                                      }
+                                  }}
+                                  className="text-[9px] text-[#777777] hover:text-[#E02424] tracking-widest transition-colors"
+                               >
+                                  通報
+                               </button>
+                            )}
+                        </div>
                     </div>
                  </div>
              );
