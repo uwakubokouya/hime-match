@@ -182,6 +182,14 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
              const isSystem = post.sns_profiles?.role === 'system' || post.sns_profiles?.role === 'admin';
              const postNumber = index + 1;
              
+             const replyMatch = post.content.match(/>>(\d+)/);
+             let replyPost = null;
+             let replyNumber = null;
+             if (replyMatch) {
+                 replyNumber = parseInt(replyMatch[1], 10);
+                 replyPost = posts[replyNumber - 1];
+             }
+             
              return (
                  <div key={post.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar */}
@@ -213,10 +221,23 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
                             </span>
                         )}
                         
-                        <div className={`p-3 text-xs leading-relaxed whitespace-pre-wrap ${
+                        <div className={`p-3 text-xs leading-relaxed whitespace-pre-wrap flex flex-col gap-2 ${
                             isMe ? 'bg-black text-white' : 'bg-white text-[#333333] border border-[#E5E5E5]'
                         }`}>
-                            {post.content}
+                            {replyPost && (
+                                <div className={`p-2 border-l-2 text-[10px] opacity-90 ${
+                                    isMe ? 'bg-white/10 border-white/30' : 'bg-black/5 border-black/20'
+                                }`}>
+                                   <div className="text-[8px] mb-1 opacity-70 flex items-center gap-1">
+                                      <span>{replyNumber}.</span>
+                                      <span>{replyPost.sns_profiles?.name || '名無し'}</span>
+                                   </div>
+                                   <div className="line-clamp-2 leading-relaxed">
+                                      {replyPost.content}
+                                   </div>
+                                </div>
+                            )}
+                            <div>{post.content}</div>
                         </div>
                         
                         <div className={`flex items-center gap-3 mt-1 px-1 ${isMe ? 'justify-end' : 'justify-start'} w-full`}>
