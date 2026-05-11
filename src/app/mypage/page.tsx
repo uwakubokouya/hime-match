@@ -4,6 +4,7 @@ import { LogOut, ChevronRight, User as UserIcon, Settings, Bell, CircleHelp, Mes
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import LoginModal from "@/components/auth/LoginModal";
 
 export default function MyPage() {
   const { user, logout, hasUnreadNotifications, hasUnreadFootprints, hasUnreadReviews } = useUser();
@@ -13,6 +14,14 @@ export default function MyPage() {
   const [gachaResult, setGachaResult] = useState<{added: number, total: number} | null>(null);
   const [gachaErrorMsg, setGachaErrorMsg] = useState("");
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const handleProtectedClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault();
+      setShowAuthModal(true);
+    }
+  };
 
   useEffect(() => {
      if (!user) return;
@@ -217,7 +226,7 @@ export default function MyPage() {
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           ) : (
-            <Link href="/mypage/settings" className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
+            <Link href="/mypage/settings" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
               <div className="flex items-center gap-3">
                 <UserIcon size={18} className="stroke-[1.5]" />
                 <span className="text-xs tracking-widest">アカウント設定</span>
@@ -226,7 +235,7 @@ export default function MyPage() {
             </Link>
           )}
           {user?.role !== 'cast' && (
-            <Link href="/mypage/notifications" className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
+            <Link href="/mypage/notifications" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
               <div className="flex items-center gap-3 relative">
                 <div className="relative">
                   {hasUnreadNotifications ? (
@@ -272,7 +281,7 @@ export default function MyPage() {
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           ) : (
-            <Link href="/mypage/system-settings" className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors">
+            <Link href="/mypage/system-settings" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors">
               <div className="flex items-center gap-3">
                 <Settings size={18} className="stroke-[1.5]" />
                 <span className="text-xs tracking-widest">各種設定</span>
@@ -340,12 +349,12 @@ export default function MyPage() {
               <span className="text-[10px] font-medium tracking-widest uppercase">ログアウト</span>
             </button>
           ) : (
-            <Link 
-              href="/login"
+            <button 
+              onClick={() => setShowAuthModal(true)}
               className="w-full py-4 border border-black bg-black text-white hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2 group"
             >
               <span className="text-[10px] font-medium tracking-widest uppercase">ログイン / 新規会員登録</span>
-            </Link>
+            </button>
           )}
         </div>
       </main>
@@ -413,6 +422,9 @@ export default function MyPage() {
 
           </div>
         </div>
+      )}
+      {showAuthModal && (
+        <LoginModal onClose={() => setShowAuthModal(false)} />
       )}
     </div>
   );

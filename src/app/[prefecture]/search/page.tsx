@@ -639,7 +639,6 @@ export default function SearchPage() {
 
                             {cast.isNew && (
                                 <div className="bg-[#22C55E] text-white text-[9px] font-bold px-2.5 py-1 tracking-[0.2em] shadow-lg flex items-center justify-center gap-1.5 whitespace-nowrap">
-                                    <span style={{ textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }} className="text-[11px]">🔰</span>
                                     NEW FACE
                                 </div>
                             )}

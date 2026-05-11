@@ -1,18 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #000000;
-  --color-primary-light: #333333;
-  --color-primary-dark: #000000;
+  /* Next-gen SNS Pink/Purple Theme */
+  --color-primary: #FF8BA7;
+  --color-primary-light: #FFB3C6;
+  --color-primary-dark: #FF5C8A;
 
-  --color-secondary: #777777;
-  --color-secondary-light: #E5E5E5;
-  --color-secondary-dark: #333333;
+  --color-accent: #C8B6FF;
+  --color-accent-light: #E7C6FF;
 
-  --color-background: #FFFFFF;
-  --color-foreground: #000000;
-  --color-muted: #888888;
-  --color-border: #EEEEEE;
+  --color-vip: #4B0082;
+  --color-vip-gold: #D4AF37;
+
+  --color-background: #FAFAFA;
+  --color-foreground: #333333;
+  --color-muted: #999999;
+  --color-border: #F0F0F0;
+
+  --color-glass-bg: rgba(255, 255, 255, 0.6);
+  --color-glass-border: rgba(255, 255, 255, 0.8);
 
   --animate-ring: ring 0.6s ease-in-out infinite;
 
@@ -25,11 +31,13 @@
 
 @layer base {
   body {
-    background-color: var(--color-background);
+    /* Clean white background for real-app feel */
+    background: #FFFFFF;
+    background-attachment: fixed;
     color: var(--color-foreground);
     overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
-    font-weight: 300;
+    font-weight: 400;
     
     /* Anti-Screenshot / Anti-Save Measures */
     -webkit-touch-callout: none;
@@ -55,43 +63,47 @@
   }
 }
 
-/* Premium utility classes */
+/* Premium utility classes (Redesigned Next-Gen SNS - Clean White Version) */
 @utility premium-card {
-  background-color: #ffffff;
-  border-radius: 0px;
-  box-shadow: none;
-  border: 1px solid #E5E5E5;
+  background-color: #FFFFFF;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.03);
   transition: all 0.3s ease;
 }
 
 @utility premium-btn {
-  background-color: #000000;
+  background: linear-gradient(135deg, #FF5C8A, #FF8BA7);
   color: #FFFFFF;
-  border-radius: 0px;
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  transition: all 0.3s ease;
-  border: 1px solid #000000;
+  border-radius: 9999px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+  border: none;
+  box-shadow: 0 4px 15px rgba(255, 92, 138, 0.3);
 }
 
-@utility premium-btn-hover {
-  background-color: #FFFFFF;
-  color: #000000;
+/* スマホのタップ（押し込み）時の反応 */
+@utility premium-btn-active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(255, 92, 138, 0.4);
 }
 
 @utility premium-btn-outline {
-  background-color: #FFFFFF;
-  color: #000000;
-  border-radius: 0px;
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  transition: all 0.3s ease;
-  border: 1px solid #000000;
+  background-color: var(--color-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--color-primary-dark);
+  border-radius: 9999px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+  border: 2px solid var(--color-primary-light);
 }
 
-@utility premium-btn-outline-hover {
-  background-color: #000000;
-  color: #FFFFFF;
+@utility premium-btn-outline-active {
+  background-color: rgba(255, 179, 198, 0.2);
+  transform: scale(0.96);
 }
 
 /* Mobile-only random hover effect for search screen */

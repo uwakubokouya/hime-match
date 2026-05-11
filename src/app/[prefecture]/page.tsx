@@ -6,8 +6,9 @@ import { useUser } from "@/providers/UserProvider";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { MessageSquare, Bell, Lock, ArrowLeft, Heart, X } from "lucide-react";
+import { MessageSquare, Bell, Lock, ArrowLeft, Heart, X, Globe, Briefcase, ChevronDown, Search } from "lucide-react";
 import { fetchBusinessEndTime, getLogicalBusinessDate, getAdjustedMinutes, getAdjustedNowMins } from "@/utils/businessTime";
+import LoginModal from "@/components/auth/LoginModal";
 
 const getTimeAgo = (dateString: string) => {
     const now = new Date();
@@ -25,7 +26,9 @@ export default function Home() {
   const params = useParams();
   const prefecture = params.prefecture ? decodeURIComponent(params.prefecture as string) : "";
   const router = useRouter();
-
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [showIndustryMenu, setShowIndustryMenu] = useState(false);
+  const [selectedIndustry, setSelectedIndustry] = useState("総合");
   // 「全国」エリアを廃止し、アクセスされた場合はトップ（エリア選択）へリダイレクト
   useEffect(() => {
     if (prefecture === '全国') {
@@ -57,7 +60,7 @@ export default function Home() {
       router.replace('/福岡');
     }
   }, [isTestMode, prefecture, router]);
-  useEffect(() => { if ((user?.role === 'system' || user?.role === 'admin') && ['official', 'following', 'recommended', 'working'].includes(activeTab)) { setActiveTab('summary'); } }, [user, activeTab]);
+  useEffect(() => { if ((user?.role === 'system' || user?.role === 'admin') && ['official', 'following', 'recommended', 'working', 'users'].includes(activeTab)) { setActiveTab('summary'); } }, [user, activeTab]);
 
   useEffect(() => {
     const trackPV = async () => {
@@ -157,7 +160,7 @@ export default function Home() {
     if (storeIds.length > 0) {
         const { data } = await supabase
           .from('casts')
-          .select('id, login_id, store_id')
+          .select('id, login_id, store_id, join_date')
           .in('store_id', storeIds)
           .eq('status', 'active');
         if (data) fetchedCasts = data;
@@ -186,7 +189,7 @@ export default function Home() {
         if (myStoreId) {
             const { data: myCasts } = await supabase
                 .from('casts')
-                .select('id, login_id, store_id')
+                .select('id, login_id, store_id, join_date')
                 .eq('store_id', myStoreId)
                 .eq('status', 'active');
             
@@ -291,7 +294,7 @@ export default function Home() {
         }
     }
 
-    if (targetSnsIds.length === 0) {
+    if (activeTab !== 'users' && targetSnsIds.length === 0) {
       if (!isLoadMore) setPosts([]);
       setIsLoading(false);
       setIsFetchingMore(false);
@@ -317,15 +320,21 @@ export default function Home() {
           name,
           avatar_url,
           phone,
-          role
+          role,
+          created_at
         ),
         sns_reviews!sns_posts_quoted_review_id_fkey (
           id, rating, score, visited_date, content, reviewer_id,
           sns_profiles!sns_reviews_reviewer_id_fkey(name, avatar_url, is_vip)
         ),
         tagged_cast:sns_profiles!sns_posts_tagged_cast_id_fkey(id, name, avatar_url, is_vip, bio)
-      `)
-      .in('cast_id', targetSnsIds);
+      `);
+      
+    if (activeTab === 'users') {
+        postsQuery = postsQuery.eq('sns_profiles.role', 'customer');
+    } else {
+        postsQuery = postsQuery.in('cast_id', targetSnsIds);
+    }
 
     let queryBuilder = postsQuery;
     if (prefecture && prefecture !== '全国') {
@@ -352,6 +361,34 @@ export default function Home() {
            shiftResults.forEach(({ data }) => {
                if (data) {
                    availabilityData = [...availabilityData, ...data];
+               }
+           });
+       }
+
+       const nextShiftMap = new Map();
+       if (castIdsForPosts.length > 0) {
+           const uniqueStoreIds = [...new Set(castsForPosts.map((c: any) => c.store_id).filter(Boolean))];
+           const next14DaysPromises = [];
+           for (let i = 1; i <= 14; i++) {
+               const d = new Date();
+               d.setDate(d.getDate() + i);
+               const dateStr = d.toLocaleDateString('sv-SE').split('T')[0];
+               for (const sid of uniqueStoreIds) {
+                   next14DaysPromises.push(
+                       supabase.rpc('get_public_availability', { p_store_id: sid as string, p_date: dateStr })
+                       .then((res: any) => ({ dateStr, data: res.data }))
+                   );
+               }
+           }
+           const next14DaysResults = await Promise.all(next14DaysPromises);
+           next14DaysResults.forEach((result) => {
+               if (result.data) {
+                   result.data.forEach((row: any) => {
+                       const hasValidShift = row.attendance_status !== 'absent' && (!!row.shift_start || !!row.shift_end);
+                       if (hasValidShift && !nextShiftMap.has(row.cast_id)) {
+                           nextShiftMap.set(row.cast_id, result.dateStr);
+                       }
+                   });
                }
            });
        }
@@ -393,6 +430,10 @@ export default function Home() {
                if (isAbsent) {
                    statusText = "お休み";
                    isWorkingToday = false;
+                    if (avail.next_shift_date) {
+                        const dt = new Date(avail.next_shift_date);
+                        nextAvailableTime = `次回出勤: ${dt.getMonth() + 1}/${dt.getDate()}`;
+                    }
                } else if (avail.shift_end) {
                    const eMin = getAdjustedMinutes(avail.shift_end, businessEndTime.hour);
                    const adjCurrentMin = getAdjustedNowMins(now, businessEndTime.hour);
@@ -462,11 +503,25 @@ export default function Home() {
                        slotsLeft = Math.max(0, totalSlots - bookedCount);
                    }
                }
-           }
-           
+           } else {
+                if (matchedStoreCast && nextShiftMap.has(matchedStoreCast.id)) {
+                    const dt = new Date(nextShiftMap.get(matchedStoreCast.id));
+                    nextAvailableTime = `次回出勤: ${dt.getMonth() + 1}/${dt.getDate()}`;
+                }
+            }
+            
             const type = post.post_type || "全員";
             const isStore = storeAccountIds.includes(post.cast_id) || platformAdminIds.includes(post.cast_id);
             
+            let isNew = false;
+            if (matchedStoreCast?.join_date) {
+                const joinDate = new Date(matchedStoreCast.join_date);
+                const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+                if (now.getTime() - joinDate.getTime() < thirtyDaysMs) {
+                    isNew = true;
+                }
+            }
+
             let currentStoreName = adminProfile?.name || "公式";
             let currentStoreProfileId = adminProfile?.id;
 
@@ -500,7 +555,8 @@ export default function Home() {
                  isMyStoreCast,
                  isPlatformAdmin: platformAdminIds.includes(post.cast_id),
                  storeName: currentStoreName,
-                 storeProfileId: currentStoreProfileId
+                 storeProfileId: currentStoreProfileId,
+                 isNew
             };
             
            if (type === "会員" && !user) {
@@ -600,9 +656,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Top Header */}
-      <header className="sticky -top-[1px] pt-[1px] z-40 bg-white border-b border-[#E5E5E5]">
+      <header className="sticky -top-[1px] pt-[1px] z-40 bg-white">
         <div className="flex px-4 py-4 items-center justify-between">
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center shrink-0">
             <button 
               onClick={() => {
                 localStorage.removeItem('age_verified');
@@ -612,16 +668,18 @@ export default function Home() {
             >
               <img src="/images/logo2.png" alt="HimeMatch" className="h-16 object-contain" />
             </button>
+          </div>
+          <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
               {(!user || user?.role === 'customer') && (
                 <>
-                  <span className="text-[10px] tracking-widest text-black font-bold bg-[#F9F9F9] border border-[#E5E5E5] px-2 py-0.5">
+                  <span className="premium-btn text-[10px] tracking-widest px-3 py-1 shadow-sm">
                     {prefecture || "総合"}エリア
                   </span>
                   {!isTestMode && (
                   <Link 
                     href="/"
-                    className="text-[10px] tracking-widest text-[#777777] hover:text-black border border-[#E5E5E5] hover:border-black px-2 py-0.5 transition-colors"
+                    className="text-[10px] tracking-widest text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 rounded-full px-3 py-1 transition-colors"
                   >
                     エリア変更
                   </Link>
@@ -629,10 +687,10 @@ export default function Home() {
                 </>
               )}
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-             {(!user || user?.role === 'customer') && (
-                <>
+            <div className="flex items-center gap-4 pt-1">
+               {(!user || user?.role === 'customer') && (
+                  <>
+
                   <button 
                      onClick={() => {
                         if (!user) {
@@ -662,33 +720,42 @@ export default function Home() {
                        <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#E02424] border-2 border-white rounded-full"></div>
                      )}
                   </button>
-                  <Link href="/messages" className="relative text-black hover:text-[#777777] transition-colors p-1">
+
+                  <Link href="/messages" onClick={(e) => {
+                      if (!user) {
+                          e.preventDefault();
+                          setShowAuthModal(true);
+                      }
+                  }} className="relative text-black hover:text-[#777777] transition-colors p-1">
                      <MessageSquare size={22} className="stroke-[1.5]" />
                      {hasUnreadMessages && (
                        <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#E02424] border-2 border-white rounded-full"></div>
                      )}
                   </Link>
+
+                  <Link href={`/${prefecture || '全国'}/search`} className="relative text-black hover:text-[#777777] transition-colors p-1">
+                     <Search size={22} className="stroke-[1.5]" />
+                  </Link>
+
+                  {/* Language Dropdown */}
+                  <div className="relative">
+                    <button onClick={() => { setShowLangMenu(!showLangMenu); setShowIndustryMenu(false); }} className="relative text-black hover:text-[#777777] transition-colors p-1">
+                      <Globe size={22} className="stroke-[1.5]" />
+                    </button>
+                    {showLangMenu && (
+                      <div className="absolute top-full right-0 mt-2 bg-white border border-[#E5E5E5] shadow-lg rounded-md py-2 w-32 z-50">
+                         <div className="px-4 py-2 hover:bg-[#F9F9F9] cursor-pointer text-xs tracking-widest text-black" onClick={() => setShowLangMenu(false)}>日本語</div>
+                         <div className="px-4 py-2 hover:bg-[#F9F9F9] cursor-pointer text-xs tracking-widest text-black" onClick={() => setShowLangMenu(false)}>English</div>
+                         <div className="px-4 py-2 hover:bg-[#F9F9F9] cursor-pointer text-xs tracking-widest text-black" onClick={() => setShowLangMenu(false)}>한국어</div>
+                         <div className="px-4 py-2 hover:bg-[#F9F9F9] cursor-pointer text-xs tracking-widest text-black" onClick={() => setShowLangMenu(false)}>繁体字</div>
+                         <div className="px-4 py-2 hover:bg-[#F9F9F9] cursor-pointer text-xs tracking-widest text-black" onClick={() => setShowLangMenu(false)}>简体字</div>
+                      </div>
+                    )}
+                  </div>
                 </>
              )}
-            {user ? (
-              <button 
-                onClick={async () => {
-                  await logout();
-                  localStorage.removeItem('age_verified');
-                  window.location.reload();
-                }}
-                className="text-[10px] tracking-widest font-medium uppercase border border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors"
-              >
-                Logout
-              </button>
-            ) : (
-              <Link 
-                href="/login" 
-                className="text-[10px] tracking-widest font-medium uppercase border border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors"
-              >
-                Login
-              </Link>
-            )}
+
+          </div>
           </div>
         </div>
         
@@ -699,8 +766,37 @@ export default function Home() {
           </div>
         )}
 
+        {/* Industry Selector */}
+        {(!user || user?.role === 'customer') && (
+          <div className="relative w-full px-4 pb-3 bg-white">
+            <button 
+              onClick={() => { setShowIndustryMenu(!showIndustryMenu); setShowLangMenu(false); }} 
+              className="flex items-center justify-between w-full border border-[#F0F0F0] bg-[#F9F9F9] rounded-full px-5 py-2.5 transition-colors hover:bg-gray-100 shadow-sm"
+            >
+              <span className="text-xs font-bold tracking-widest text-[#333333]">{selectedIndustry}</span>
+              <ChevronDown size={16} className="text-[#999999]" />
+            </button>
+            {showIndustryMenu && (
+              <div className="absolute left-4 right-4 top-full mt-2 bg-white border border-[#F0F0F0] shadow-lg rounded-2xl py-2 z-50 overflow-hidden">
+                 {['総合', 'デリヘル', 'ソープ', 'ヘルス', 'メンエス'].map((industry) => (
+                   <div 
+                     key={industry}
+                     className={`px-4 py-3 cursor-pointer text-xs tracking-widest text-center transition-colors ${selectedIndustry === industry ? 'bg-[#FFF0F5] text-[#FF4D8D] font-bold' : 'bg-white text-[#555555] hover:bg-[#F9F9F9]'}`} 
+                     onClick={() => {
+                       setSelectedIndustry(industry);
+                       setShowIndustryMenu(false);
+                     }}
+                   >
+                     {industry}
+                   </div>
+                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="flex w-full border-t border-[#E5E5E5]">
+        <div className="flex w-full">
           {(user?.role === 'system' || user?.role === 'admin') ? (
             <>
               {[
@@ -723,34 +819,41 @@ export default function Home() {
             <>
               <button 
                 onClick={() => setActiveTab('official')} 
-            className={`flex-1 flex justify-center py-3 text-xs tracking-widest transition-colors border-r border-[#E5E5E5] relative ${activeTab === 'official' ? 'font-bold text-black bg-[#F9F9F9]' : 'text-[#777777] hover:bg-[#F9F9F9]'}`}
-          >
-            公式
-            {activeTab === 'official' && <div className="absolute top-0 w-full h-[1px] bg-black"></div>}
-          </button>
-          <button 
-            onClick={() => setActiveTab('following')} 
-            className={`flex-1 flex justify-center py-3 text-xs tracking-widest transition-colors border-r border-[#E5E5E5] relative ${activeTab === 'following' ? 'font-bold text-black bg-[#F9F9F9]' : 'text-[#777777] hover:bg-[#F9F9F9]'}`}
-          >
-            {user?.role === 'store' ? 'マイ店舗' : 'フォロー中'}
-            {activeTab === 'following' && <div className="absolute top-0 w-full h-[1px] bg-black"></div>}
-          </button>
-          {user?.role !== 'store' && (
-            <button 
-              onClick={() => setActiveTab('recommended')} 
-              className={`flex-1 flex justify-center py-3 text-xs tracking-widest transition-colors border-r border-[#E5E5E5] relative ${activeTab === 'recommended' ? 'font-bold text-black bg-[#F9F9F9]' : 'text-[#777777] hover:bg-[#F9F9F9]'}`}
-            >
-              おすすめ
-              {activeTab === 'recommended' && <div className="absolute top-0 w-full h-[1px] bg-black"></div>}
-            </button>
-          )}
-          <button 
-            onClick={() => setActiveTab('working')} 
-            className={`flex-1 flex justify-center py-3 text-xs tracking-widest transition-colors relative ${activeTab === 'working' ? 'font-bold text-black bg-[#F9F9F9]' : 'text-[#777777] hover:bg-[#F9F9F9]'}`}
-          >
-            本日出勤
-            {activeTab === 'working' && <div className="absolute top-0 w-full h-[1px] bg-black"></div>}
-          </button>
+                className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeTab === 'official' ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
+              >
+                公式
+                {activeTab === 'official' && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
+              </button>
+              <button 
+                onClick={() => setActiveTab('following')} 
+                className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeTab === 'following' ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
+              >
+                {user?.role === 'store' ? 'マイ店舗' : 'フォロー中'}
+                {activeTab === 'following' && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
+              </button>
+              {user?.role !== 'store' && (
+                <button 
+                  onClick={() => setActiveTab('recommended')} 
+                  className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeTab === 'recommended' ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
+                >
+                  おすすめ
+                  {activeTab === 'recommended' && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
+                </button>
+              )}
+              <button 
+                onClick={() => setActiveTab('working')} 
+                className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeTab === 'working' ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
+              >
+                本日出勤
+                {activeTab === 'working' && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
+              </button>
+              <button 
+                onClick={() => setActiveTab('users')} 
+                className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeTab === 'users' ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
+              >
+                ユーザー
+                {activeTab === 'users' && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
+              </button>
             </>
           )}
         </div>
@@ -760,42 +863,45 @@ export default function Home() {
         {(user?.role === 'system' || user?.role === 'admin') ? (
           <AdminHomeContent activeTab={activeTab} />
         ) : (
-          <div className="pb-20">
+          <div className="pb-20 pt-3 px-3">
             {isLoading ? (
-            <div className="py-20 flex justify-center">
-              <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : activePosts.length > 0 ? (
-            activePosts.map(post => (
-              <PostCard 
-                key={post.id} 
-                id={post.id}
-                castId={post.cast_id}
-                castName={post.sns_profiles?.name || "Unknown"}
-                castImage={post.sns_profiles?.avatar_url || "/images/no-photo.jpg"}
-                timeAgo={getTimeAgo(post.created_at)}
-                content={post.content}
-                images={post.images || []}
-                isWorkingToday={post.isWorkingToday}
-                slotsLeft={post.slotsLeft}
-                nextAvailableTime={post.nextAvailableTime}
-                statusText={post.statusText}
-                onDelete={handleDeletePost}
-                isLocked={post.isLocked}
-                lockReason={post.lockReason}
-                storeName={post.storeName}
-                storeProfileId={post.storeProfileId}
-                postType={post.post_type}
-                quotedReview={post.sns_reviews}
-                taggedCast={post.tagged_cast}
-              />
-            ))
-          ) : (
-            <div className="py-20 text-center text-[#777777]">
-              <p className="text-sm font-light tracking-widest">投稿がありません</p>
-            </div>
-          )}
-        </div>
+              <div className="py-20 flex justify-center w-full">
+                <div className="w-6 h-6 border-2 border-[#E5E5E5] border-t-black rounded-full animate-spin"></div>
+              </div>
+            ) : activePosts.length > 0 ? (
+              <div className="columns-2 gap-3">
+                {activePosts.map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    id={post.id}
+                    castId={post.cast_id}
+                    castName={post.sns_profiles?.name || "Unknown"}
+                    castImage={post.sns_profiles?.avatar_url || "/images/no-photo.jpg"}
+                    timeAgo={getTimeAgo(post.created_at)}
+                    content={post.content}
+                    images={post.images || []}
+                    isWorkingToday={post.isWorkingToday}
+                    slotsLeft={post.slotsLeft}
+                    nextAvailableTime={post.nextAvailableTime}
+                    statusText={post.statusText}
+                    onDelete={handleDeletePost}
+                    isLocked={post.isLocked}
+                    lockReason={post.lockReason}
+                    storeName={post.storeName}
+                    storeProfileId={post.storeProfileId}
+                    postType={post.post_type}
+                    quotedReview={post.sns_reviews}
+                    taggedCast={post.tagged_cast}
+                    isNew={post.isNew}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="py-20 text-center text-[#777777] w-full">
+                <p className="text-sm font-light tracking-widest">投稿がありません</p>
+              </div>
+            )}
+          </div>
         )}
       
       {/* Loader Mock & Infinite Scroll Trigger */}
@@ -831,50 +937,7 @@ export default function Home() {
         </div>
       )}
       {showAuthModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          {/* ... existing modal untouched internally if we just override the wrapper */}
-           <div className="absolute top-6 left-6 border border-white/50 bg-white/50 rounded-full z-10">
-             <button 
-               onClick={() => setShowAuthModal(false)} 
-               className="flex items-center justify-center w-10 h-10 text-black hover:bg-black hover:text-white transition-colors rounded-full shadow-sm"
-             >
-               <ArrowLeft size={16} className="stroke-[2]" />
-             </button>
-           </div>
-           
-           <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col items-center shadow-sm">
-             <div className="w-12 h-12 border border-black flex items-center justify-center mb-6 text-black">
-               <Lock size={20} className="stroke-[1.5]" />
-             </div>
-             <h3 className="text-sm font-bold tracking-widest mb-2 uppercase text-black">Members Only</h3>
-             <p className="text-[10px] text-[#777777] mb-6 tracking-widest">これより先は会員登録が必要です</p>
-             
-             <div className="w-full bg-[#F9F9F9] border border-[#E5E5E5] p-5 mb-8 text-left space-y-4">
-                 <p className="text-[11px] font-bold tracking-widest border-b border-[#E5E5E5] text-black pb-2 mb-4 uppercase">無料会員登録のメリット</p>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">1</span>
-                    会員・フォロワー限定の<br/>写真・動画が見放題
-                 </div>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">2</span>
-                    お気に入りのキャストと<br/>メッセージでやり取り可能
-                 </div>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">3</span>
-                    予約管理や店舗からの<br/>特別なお知らせを受け取れる
-                 </div>
-             </div>
-
-             <div className="w-full space-y-3">
-               <Link href="/register" className="premium-btn w-full py-4 text-xs tracking-widest flex items-center justify-center bg-black text-white">
-                 無料会員登録に進む
-               </Link>
-               <Link href="/login" className="w-full py-4 flex items-center justify-center text-xs tracking-widest text-[#777777] border border-[#E5E5E5] bg-white hover:bg-[#F9F9F9] transition-colors">
-                 ログイン
-               </Link>
-             </div>
-           </div>
-        </div>
+        <LoginModal onClose={() => setShowAuthModal(false)} />
       )}
 
       {/* Likes Modal */}

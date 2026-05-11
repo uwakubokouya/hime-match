@@ -31,38 +31,40 @@ export default function AgeGuard({ children }: { children: React.ReactNode }) {
   if (!isVerified) {
     return (
       <>
-        <div className="fixed inset-0 z-[9999] bg-white text-black flex flex-col items-center justify-center pb-24 p-6 font-light overflow-y-auto">
-          <div className="max-w-sm w-full text-center space-y-10">
-            <img src="/images/logo.png" alt="HimeMatch" className="w-80 md:w-96 h-auto object-contain mx-auto mb-6" />
+        <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-6 font-light overflow-y-auto">
+          <div className="max-w-sm w-full text-center">
+            <img src="/images/logo.png" alt="HimeMatch" className="w-64 md:w-80 h-auto object-contain mx-auto mb-10" />
             
-            <div className="space-y-4">
-                <p className="text-[#E02424] font-medium tracking-widest text-sm border border-[#E02424] inline-block px-4 py-2">
-                    18歳未満アクセス禁止
-                </p>
-                <p className="text-xs leading-loose tracking-widest text-[#555555]">
+            <div className="w-full space-y-8">
+                <div className="inline-block px-5 py-2.5 rounded-full bg-gradient-to-r from-[#FF8BA7]/10 to-[#FF8BA7]/5 border border-[#FF8BA7]/30">
+                  <p className="text-[#FF5C8A] font-bold tracking-[0.2em] text-sm">
+                      18歳未満アクセス禁止
+                  </p>
+                </div>
+                
+                <p className="text-[11px] leading-loose tracking-widest text-[#555555]">
                     当サイトは18歳未満（高校生含む）の方、<br/>
                     および閲覧を禁止されている地域からの<br/>
                     アクセスは固くお断りいたします。<br/>
-                    あなたは18歳以上ですか？
+                    <span className="font-bold text-[#333] block mt-6 text-xs">あなたは18歳以上ですか？</span>
                 </p>
-            </div>
 
-            <div className="flex flex-col gap-4 mt-12 w-full px-4">
-                <button 
-                  onClick={handleEnter}
-                  className="w-full bg-black text-white py-4 text-xs tracking-widest font-bold tracking-[0.2em]"
-                >
-                  YES (18歳以上・入場する)
-                </button>
-                <button 
-                  onClick={handleExit}
-                  className="w-full bg-transparent border border-[#777777] text-[#777777] py-4 text-xs tracking-widest hover:bg-[#F9F9F9] transition-colors"
-                >
-                  NO (18歳未満・退出する)
-                </button>
+                <div className="flex flex-col gap-3 pt-4 w-full">
+                    <button 
+                      onClick={handleEnter}
+                      className="premium-btn w-full py-4 text-xs font-bold tracking-[0.2em]"
+                    >
+                      YES (18歳以上・入場する)
+                    </button>
+                    <button 
+                      onClick={handleExit}
+                      className="w-full bg-transparent border border-[#E5E5E5] text-[#777] py-4 text-xs font-bold tracking-[0.2em] rounded-full active:scale-95 transition-all hover:bg-gray-50"
+                    >
+                      NO (18歳未満・退出する)
+                    </button>
+                </div>
             </div>
-
-            </div>
+          </div>
         </div>
 
         {/* -------------------- Image Modal -------------------- */}

@@ -12,6 +12,7 @@ import MediaWatermark from '@/components/security/MediaWatermark';
 import ImageCropperModal from '@/components/ui/ImageCropperModal';
 import ReviewModal from '@/components/reviews/ReviewModal';
 import { fetchStoreCasts } from '@/utils/fetchCasts';
+import LoginModal from '@/components/auth/LoginModal';
 
 export default function CastProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -46,7 +47,13 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
   const [doNotShowReviewWarningAgain, setDoNotShowReviewWarningAgain] = useState(false);
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-  
+
+  const handleReserveClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault();
+      setShowAuthPrompt(true);
+    }
+  };  
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersList, setFollowersList] = useState<any[]>([]);
   const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
@@ -183,7 +190,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       // The URL 'id' could be an sns_profiles ID or a casts ID.
       const { data: initialProfile } = await supabase
         .from('sns_profiles')
-        .select('id, name, avatar_url, cover_url, accepts_dms, phone, role, is_admin, is_vip, rank, age_group, bio, points')
+        .select('id, name, avatar_url, cover_url, accepts_dms, phone, role, is_admin, is_vip, rank, age_group, bio, points, created_at')
         .eq('id', id)
         .maybeSingle();
         
@@ -199,7 +206,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
            // Find linked SNS profile by matching phone to login_id
            const { data: linkedProfile } = await supabase
              .from('sns_profiles')
-             .select('id, name, avatar_url, cover_url, accepts_dms, phone, role, is_admin, is_vip, rank, age_group, bio, points')
+             .select('id, name, avatar_url, cover_url, accepts_dms, phone, role, is_admin, is_vip, rank, age_group, bio, points, created_at')
              .eq('phone', castData.login_id || 'dummy')
              .maybeSingle();
              
@@ -248,6 +255,13 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       // 画像は「四角いSNSアイコン」側を最優先し、無ければ店舗の公式写真（casts）、それでも無ければデフォルト
       let castImg = profile?.avatar_url || storeCast?.profile_image_url || storeCast?.avatar_url || "/images/no-photo.jpg";
 
+      let isNewCast = false;
+      const nowTime = new Date();
+      if (storeCast?.join_date) {
+           const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+           if (nowTime.getTime() - new Date(storeCast.join_date).getTime() < thirtyDaysMs) isNewCast = true;
+      }
+
       // 名前のフォールバック
       if (!castName && storeCast) {
           castName = storeCast.name || "";
@@ -267,7 +281,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         contactPhone,
         is_vip: profile?.is_vip || false,
         rank: profile ? calculateUserRank(profile.points || 0) : (profile?.rank || 'Standard'),
-        ageGroup: profile?.age_group || undefined
+        ageGroup: profile?.age_group || undefined,
+        isNew: isNewCast
       }));
 
       if (profile && profile.accepts_dms === false) {
@@ -482,7 +497,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                  postType: p.post_type,
                  isPinned: p.is_pinned,
                  quotedReview: p.sns_reviews,
-                 taggedCast: p.tagged_cast
+                 taggedCast: p.tagged_cast,
+                 isNew: isNewCast
              };
          }));
       }
@@ -601,6 +617,10 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                   if (isAbsent) {
                       statusText = "お休み";
                       isWorkingToday = false;
+                       if (myAvails[0].next_shift_date) {
+                           const d = new Date(myAvails[0].next_shift_date);
+                           nextAvailableTime = `次回出勤: ${d.getMonth() + 1}/${d.getDate()}`;
+                       }
                   } else if (shift_end) {
                       const eParts = shift_end.split(':');
                       let eH = parseInt(eParts[0]);
@@ -685,10 +705,38 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                       slotsLeft: slotsLeft,
                       nextAvailableTime: nextAvailableTime,
                       statusText: statusText
-                  }));
-              }
-          }
-      }
+                   }));
+               } else {
+                   let nextAvailableTime = null;
+                   const nextValid = next14Days.find(d => d.text !== "お休み");
+                   if (nextValid) {
+                       nextAvailableTime = `次回出勤: ${nextValid.displayDate.split('(')[0]}`;
+                   }
+                   
+                   setProfileData(prev => ({ 
+                       ...prev, 
+                       workingToday: false, 
+                       slotsLeft: null,
+                       nextAvailableTime: nextAvailableTime,
+                       statusText: undefined
+                   }));
+               }
+           } else {
+               let nextAvailableTime = null;
+                   const nextValid = next14Days.find(d => d.text !== "お休み");
+                   if (nextValid) {
+                       nextAvailableTime = `次回出勤: ${nextValid.displayDate.split('(')[0]}`;
+                   }
+               
+               setProfileData(prev => ({ 
+                   ...prev, 
+                   workingToday: false, 
+                   slotsLeft: null,
+                   nextAvailableTime: nextAvailableTime,
+                   statusText: undefined
+               }));
+           }
+       }
     };
     
     fetchFollowData();
@@ -2028,7 +2076,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                     {isOff ? (
                                         <span className="text-[#777777] font-normal">{shift.text}</span>
                                     ) : (
-                                        <Link href={`/reserve/${resolvedCastId}?date=${shift.dateStr}`} className="text-black hover:text-[#777777] transition-colors underline underline-offset-4 decoration-[#E5E5E5]">
+                                        <Link href={`/reserve/${resolvedCastId}?date=${shift.dateStr}`} onClick={handleReserveClick} className="text-black hover:text-[#777777] transition-colors underline underline-offset-4 decoration-[#E5E5E5]">
                                             {shift.text}
                                         </Link>
                                     )}
@@ -2174,7 +2222,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                {likedFollowerIds.has(resolvedCastId) ? 'いいね送信済み' : 'いいね・足あとを残す'}
             </button>
           ) : !isNonCastProfile ? (
-            <Link href={`/reserve/${id}`} className="premium-btn w-full flex items-center justify-center gap-3 py-4 text-sm tracking-widest">
+            <Link href={`/reserve/${id}`} onClick={handleReserveClick} className="premium-btn w-full flex items-center justify-center gap-3 py-4 text-sm tracking-widest">
                <Calendar size={18} className="stroke-[1.5]" />
                このキャストを予約する
             </Link>
@@ -2235,49 +2283,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Auth Prompt Overlay (Glassmorphism) */})
       {showAuthPrompt && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="absolute top-6 left-6 border border-white/50 bg-white/50 rounded-full z-10">
-             <button 
-               onClick={() => setShowAuthPrompt(false)} 
-               className="flex items-center justify-center w-10 h-10 text-black hover:bg-black hover:text-white transition-colors rounded-full shadow-sm"
-             >
-               <ArrowLeft size={16} className="stroke-[2]" />
-             </button>
-           </div>
-           
-           <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col items-center">
-             <div className="w-12 h-12 border border-black flex items-center justify-center mb-6 text-black">
-               <Lock size={20} className="stroke-[1.5]" />
-             </div>
-             <h3 className="text-sm font-bold tracking-widest mb-2 uppercase text-black">Members Only</h3>
-             <p className="text-[10px] text-[#777777] mb-6 tracking-widest">これより先は会員登録が必要です</p>
-             
-             <div className="w-full bg-[#F9F9F9] border border-[#E5E5E5] p-5 mb-8 text-left space-y-4">
-                 <p className="text-[11px] font-bold tracking-widest border-b border-[#E5E5E5] pb-2 mb-4 text-black uppercase">無料会員登録のメリット</p>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">1</span>
-                    会員・フォロワー限定の<br/>写真・動画が見放題
-                 </div>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">2</span>
-                    お気に入りのキャストと<br/>メッセージでやり取り可能
-                 </div>
-                 <div className="flex items-center gap-3 text-xs tracking-widest text-[#333333]">
-                    <span className="w-4 h-4 bg-black text-white flex items-center justify-center text-[8px] font-bold shrink-0">3</span>
-                    予約管理や店舗からの<br/>特別なお知らせを受け取れる
-                 </div>
-             </div>
-
-             <div className="w-full space-y-3">
-               <button onClick={() => { setShowAuthPrompt(false); router.push('/register'); }} className="premium-btn w-full py-4 text-xs tracking-widest bg-black text-white">
-                 無料会員登録に進む
-               </button>
-               <button onClick={() => setShowAuthPrompt(false)} className="w-full py-4 text-xs tracking-widest text-[#777777] border border-[#E5E5E5] bg-white hover:bg-[#F9F9F9] transition-colors">
-                 閉じる
-               </button>
-             </div>
-           </div>
-        </div>
+        <LoginModal onClose={() => setShowAuthPrompt(false)} />
       )}
 
       {/* Twitter-style Profile Edit Modal */}
