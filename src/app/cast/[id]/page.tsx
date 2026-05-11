@@ -459,6 +459,26 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         .order('created_at', { ascending: false });
 
       if (feedPosts) {
+         const postIds = feedPosts.map(p => p.id);
+         let postLikesCount: Record<string, number> = {};
+         let myLikedPostIds = new Set<string>();
+
+         if (postIds.length > 0) {
+             const { data: likesData } = await supabase
+               .from('sns_post_likes')
+               .select('post_id, user_id')
+               .in('post_id', postIds);
+             
+             if (likesData) {
+                 likesData.forEach(like => {
+                     postLikesCount[like.post_id] = (postLikesCount[like.post_id] || 0) + 1;
+                     if (user && like.user_id === user.id) {
+                         myLikedPostIds.add(like.post_id);
+                     }
+                 });
+             }
+         }
+
          // Map to isLocked instead of filtering
          const mappedPosts = feedPosts.map(p => {
              let isLocked = false;
@@ -474,7 +494,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                      lockReason = "フォロワー限定の投稿です";
                  }
              }
-             return { ...p, isLocked, lockReason };
+             return { ...p, isLocked, lockReason, likesCount: postLikesCount[p.id] || 0, isLiked: myLikedPostIds.has(p.id) };
          });
 
          setPosts(mappedPosts.map(p => {
@@ -498,6 +518,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                  isPinned: p.is_pinned,
                  quotedReview: p.sns_reviews,
                  taggedCast: p.tagged_cast,
+                 likesCount: p.likesCount,
+                 isLiked: p.isLiked,
                  isNew: isNewCast
              };
          }));

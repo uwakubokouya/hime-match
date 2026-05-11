@@ -22,6 +22,10 @@ interface ImmersiveMediaViewerProps {
   onUnlockRequest?: () => Promise<boolean> | void;
   taggedCast?: any;
   taggedCastScore?: string | null;
+  likesCount?: number;
+  isLiked?: boolean;
+  onLikeToggle?: (e?: React.MouseEvent) => void;
+  onShare?: (e?: React.MouseEvent) => void;
 }
 
 export default function ImmersiveMediaViewer({
@@ -39,7 +43,11 @@ export default function ImmersiveMediaViewer({
   isLocked = false,
   onUnlockRequest,
   taggedCast,
-  taggedCastScore
+  taggedCastScore,
+  likesCount = 0,
+  isLiked = false,
+  onLikeToggle,
+  onShare
 }: ImmersiveMediaViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isFitMode, setIsFitMode] = useState(true);
@@ -425,11 +433,14 @@ export default function ImmersiveMediaViewer({
 
          {/* Bottom Right Action Buttons */}
          <div className="flex flex-col items-center gap-4 pb-2 pointer-events-auto shrink-0 pl-2">
-             <button className="flex flex-col items-center gap-1 group">
+             <button 
+                 onClick={(e) => { e.stopPropagation(); if (onLikeToggle) onLikeToggle(e); }}
+                 className="flex flex-col items-center gap-1 group"
+             >
                  <div className="w-10 h-10 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 transition-colors shadow-lg">
-                     <Heart size={20} className="stroke-[1.5]" />
+                     <Heart size={20} className={isLiked ? "fill-[#FF3B30] text-[#FF3B30]" : "stroke-[1.5]"} />
                  </div>
-                 <span className="text-white text-[10px] font-bold drop-shadow-md">7</span>
+                 <span className="text-white text-[10px] font-bold drop-shadow-md">{likesCount > 0 ? likesCount : ''}</span>
              </button>
              
              <button className="flex flex-col items-center gap-1 group">
@@ -439,11 +450,13 @@ export default function ImmersiveMediaViewer({
                  <span className="text-white text-[10px] font-bold drop-shadow-md">1</span>
              </button>
              
-             <button className="flex flex-col items-center gap-1 group">
+             <button 
+                 onClick={(e) => { e.stopPropagation(); if (onShare) onShare(e); }}
+                 className="flex flex-col items-center gap-1 group"
+             >
                  <div className="w-10 h-10 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 transition-colors shadow-lg">
                      <Share size={20} className="stroke-[1.5]" />
                  </div>
-                 <span className="text-white text-[10px] font-bold drop-shadow-md">0</span>
              </button>
 
              {!isVideo && (

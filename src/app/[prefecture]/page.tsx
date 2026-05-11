@@ -346,6 +346,26 @@ export default function Home() {
       .range(from, to);
 
     if (postsData) {
+       const postIds = postsData.map(p => p.id);
+       let postLikesCount: Record<string, number> = {};
+       let myLikedPostIds = new Set<string>();
+
+       if (postIds.length > 0) {
+           const { data: likesData } = await supabase
+             .from('sns_post_likes')
+             .select('post_id, user_id')
+             .in('post_id', postIds);
+           
+           if (likesData) {
+               likesData.forEach(like => {
+                   postLikesCount[like.post_id] = (postLikesCount[like.post_id] || 0) + 1;
+                   if (user && like.user_id === user.id) {
+                       myLikedPostIds.add(like.post_id);
+                   }
+               });
+           }
+       }
+
        const uniqueCastLogins = [...new Set(postsData.map((p: any) => p.sns_profiles?.phone).filter(Boolean))];
        const castsForPosts = activeCasts?.filter((c: any) => uniqueCastLogins.includes(c.login_id)) || [];
        const castIdsForPosts = castsForPosts.map((c: any) => c.id);
@@ -556,7 +576,9 @@ export default function Home() {
                  isPlatformAdmin: platformAdminIds.includes(post.cast_id),
                  storeName: currentStoreName,
                  storeProfileId: currentStoreProfileId,
-                 isNew
+                 isNew,
+                 likesCount: postLikesCount[post.id] || 0,
+                 isLiked: myLikedPostIds.has(post.id)
             };
             
            if (type === "会員" && !user) {
@@ -893,6 +915,8 @@ export default function Home() {
                     quotedReview={post.sns_reviews}
                     taggedCast={post.tagged_cast}
                     isNew={post.isNew}
+                    likesCount={post.likesCount}
+                    isLiked={post.isLiked}
                   />
                 ))}
               </div>

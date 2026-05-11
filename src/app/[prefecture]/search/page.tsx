@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Search as SearchIcon, SlidersHorizontal, X, Check, Sparkles } from 'lucide-react';
+import { Search as SearchIcon, SlidersHorizontal, X, Check, Sparkles, Heart } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fetchBusinessEndTime, getLogicalBusinessDate, getAdjustedMinutes, getAdjustedNowMins } from "@/utils/businessTime";
@@ -99,12 +99,15 @@ export default function SearchPage() {
         if (phones.length > 0) {
             const { data: pData } = await supabase
               .from('sns_profiles')
-              .select('id, phone, avatar_url')
+              .select('id, phone, avatar_url, bio')
               .in('phone', phones);
             if (pData) profilesData = pData;
         }
 
         let prefsData: any[] = [];
+        let followerCounts: Record<string, number> = {};
+        let likeCounts: Record<string, number> = {};
+        
         if (profilesData.length > 0) {
             const profileIds = profilesData.map(p => p.id);
             const { data: prefDataRes } = await supabase
@@ -112,6 +115,41 @@ export default function SearchPage() {
               .select('*')
               .in('user_id', profileIds);
             if (prefDataRes) prefsData = prefDataRes;
+
+            // フォロワー数といいね数を取得
+            const { data: follows } = await supabase
+              .from('sns_follows')
+              .select('following_id')
+              .in('following_id', profileIds);
+            
+            if (follows) {
+                follows.forEach(f => {
+                    followerCounts[f.following_id] = (followerCounts[f.following_id] || 0) + 1;
+                });
+            }
+
+            const { data: posts } = await supabase
+              .from('sns_posts')
+              .select('id, cast_id')
+              .in('cast_id', profileIds);
+
+            if (posts && posts.length > 0) {
+                const postIds = posts.map(p => p.id);
+                // fetch likes in chunks if needed, but for now simple in
+                const { data: likes } = await supabase
+                  .from('sns_post_likes')
+                  .select('post_id')
+                  .in('post_id', postIds);
+                
+                if (likes) {
+                    likes.forEach(l => {
+                        const post = posts.find(p => p.id === l.post_id);
+                        if (post) {
+                            likeCounts[post.cast_id] = (likeCounts[post.cast_id] || 0) + 1;
+                        }
+                    });
+                }
+            }
         }
         
         // 本日の日付（YYYY-MM-DD）を取得
@@ -309,6 +347,9 @@ export default function SearchPage() {
                 return {
                     ...cast,
                     sns_avatar_url: profile?.avatar_url || null,
+                    bio: profile?.bio || null,
+                    followers_count: profile ? (followerCounts[profile.id] || 0) : 0,
+                    likes_count: profile ? (likeCounts[profile.id] || 0) : 0,
                     preferences: pref || null,
                     isWorkingToday,
                     slotsLeft,
@@ -570,15 +611,16 @@ export default function SearchPage() {
             </button>
         </div>
 
-        {/* Filter Tags Scroll */}
-        <div className="px-6 pb-4 overflow-x-auto no-scrollbar flex gap-2">
+        {/* Tabs */}
+        <div className="flex w-full">
             {filters.map(f => (
                 <button 
                     key={f.id}
                     onClick={() => setActiveFilter(f.id)}
-                    className={`whitespace-nowrap px-4 py-2 text-[10px] tracking-widest border transition-all ${activeFilter === f.id ? 'bg-black text-white border-black' : 'bg-white text-[#777777] border-[#E5E5E5] hover:border-black'}`}
+                    className={`flex-1 flex justify-center py-3.5 text-[11px] font-bold tracking-widest transition-colors relative ${activeFilter === f.id ? 'text-[#FF5C8A]' : 'text-gray-400'}`}
                 >
                     {f.label}
+                    {activeFilter === f.id && <div className="absolute bottom-0 w-8 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
                 </button>
             ))}
         </div>
@@ -602,7 +644,7 @@ export default function SearchPage() {
                     }
                     
                     return currentlyDisplayedCasts.map(cast => (
-                    <Link key={cast.id} href={`/cast/${cast.id}`} className="block relative aspect-[3/4] bg-[#F9F9F9] group overflow-hidden border border-[#E5E5E5]">
+                    <Link key={cast.id} href={`/cast/${cast.id}`} className="block relative aspect-[3/4] bg-[#F9F9F9] group overflow-hidden border border-[#E5E5E5] rounded-xl shadow-sm">
                         <img 
                            src={cast.sns_avatar_url || cast.profile_image_url || cast.avatar_url || "/images/no-photo.jpg"} 
                            alt={cast.name} 
@@ -611,44 +653,66 @@ export default function SearchPage() {
                            style={{ "--pulse-delay": `-${Math.random() * 15}s`, "--pulse-dur": `${10 + Math.random() * 6}s` } as React.CSSProperties}
                         />
                         
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+                        <div className="absolute inset-x-0 bottom-0 bg-white/85 backdrop-blur-md border-t border-white/50 px-3 py-2 flex flex-col justify-center z-10">
+                            <div className="flex items-center gap-1.5">
+                                <h2 className="text-black text-sm font-bold tracking-[0.1em] uppercase">
+                                    {cast.name}
+                                </h2>
+                                {cast.preferences?.age_min && (
+                                    <span className="text-[10px] text-black font-medium">{cast.preferences.age_min}歳</span>
+                                )}
+                            </div>
+                            {cast.bio && (
+                                <p className="text-[#555555] text-[10px] mt-0.5 truncate pointer-events-none font-medium">
+                                    {cast.bio}
+                                </p>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-1 text-[9px] font-bold tracking-widest">
+                                <div className="flex items-center gap-0.5">
+                                    <Heart size={9} className="fill-[#FF3B30] text-[#FF3B30]" />
+                                    <span className="bg-gradient-to-r from-[#FF3B30] to-[#FF2D55] bg-clip-text text-transparent">
+                                        {cast.likes_count || 0}
+                                    </span>
+                                </div>
+                                <span className="text-[#E5E5E5] font-normal">|</span>
+                                <span className="bg-gradient-to-r from-[#FF2D55] to-[#FF9500] bg-clip-text text-transparent">
+                                    {cast.followers_count || 0} フォロワー
+                                </span>
+                            </div>
+                        </div>
                         
-                        <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5 pointer-events-none max-w-[calc(100%-24px)]">
+                        <div className="absolute top-2 left-2 z-20 pointer-events-none">
                             {cast.statusText === 'お休み' ? (
-                                <div className="bg-black/80 backdrop-blur text-white text-[9px] px-2 py-1 font-bold tracking-widest border border-white/20">
+                                <div className="text-white text-[10px] font-bold tracking-widest px-2.5 py-1 rounded shadow-sm bg-[#777777]">
                                     お休み
                                 </div>
                             ) : cast.statusText === '受付終了' ? (
-                                <div className="bg-black/70 backdrop-blur text-[#E5E5E5] text-[9px] px-2 py-1 font-bold tracking-widest border border-white/20">
+                                <div className="text-white text-[10px] font-bold tracking-widest px-2.5 py-1 rounded shadow-sm bg-[#777777]">
                                     受付終了
                                 </div>
                             ) : cast.statusText === 'ご予約完売' ? (
-                                <div className="bg-[#E5E5E5]/90 backdrop-blur text-black text-[9px] px-2 py-1 font-bold tracking-widest border border-black/20">
+                                <div className="text-white text-[10px] font-bold tracking-widest px-2.5 py-1 rounded shadow-sm bg-[#333333]">
                                     ご予約完売
                                 </div>
                             ) : cast.statusText === '本日出勤中' ? (
-                                <div className="bg-white/90 backdrop-blur text-black text-[9px] px-2 py-1 font-bold tracking-widest flex items-center gap-1 shadow-sm border border-white whitespace-nowrap">
-                                    <span className={`w-1.5 h-1.5 shrink-0 rounded-none ${cast.nextAvailableTime === '待機中' ? 'bg-[#E02424] animate-[pulse_2s_ease-in-out_infinite]' : 'bg-black'}`}></span>
-                                    <span className="truncate">{cast.nextAvailableTime === '待機中' ? '待機中' : `次回 ${cast.nextAvailableTime}〜`}</span>
+                                <div className={`text-white text-[10px] font-bold tracking-widest px-2.5 py-1 rounded shadow-sm ${cast.nextAvailableTime === '待機中' ? 'bg-[#E02424] animate-pulse' : 'bg-[#E02424]'}`}>
+                                    {cast.nextAvailableTime === '待機中' ? '待機中' : `次回 ${cast.nextAvailableTime}`}
                                 </div>
                             ) : cast.nextAvailableTime && cast.nextAvailableTime.includes('次回出勤: ') && !cast.nextAvailableTime.includes('未定') ? (
-                                <div className="bg-black/70 backdrop-blur text-[#E5E5E5] text-[9px] px-2 py-1 font-bold tracking-widest border border-white/20">
-                                    <span className="truncate">{cast.nextAvailableTime.replace('次回出勤: ', '次回出勤 ')}</span>
+                                <div className="text-white text-[10px] font-bold tracking-widest px-2.5 py-1 rounded shadow-sm bg-[#777777]">
+                                    {cast.nextAvailableTime.replace('次回出勤: ', '次回出勤 ')}
                                 </div>
                             ) : null}
+                        </div>
 
-                            {cast.isNew && (
-                                <div className="bg-[#22C55E] text-white text-[9px] font-bold px-2.5 py-1 tracking-[0.2em] shadow-lg flex items-center justify-center gap-1.5 whitespace-nowrap">
-                                    NEW FACE
+                        {cast.isNew && (
+                            <div className="absolute top-2 right-2 z-20 pointer-events-none">
+                                <div className="bg-gradient-to-br from-[#85C121] to-[#FFC107] text-white text-[10px] font-bold tracking-widest px-2.5 py-1 shadow-sm rounded border border-white/50">
+                                    NEW
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
-                        <div className="absolute bottom-4 left-4">
-                            <h2 className="text-white text-lg font-normal tracking-[0.2em] uppercase drop-shadow-md">
-                                {cast.name}
-                            </h2>
-                        </div>
                     </Link>
                     ));
                 })()

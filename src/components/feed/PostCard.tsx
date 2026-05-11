@@ -35,6 +35,8 @@ interface PostProps {
   quotedReview?: any;
   taggedCast?: any;
   isNew?: boolean;
+  likesCount?: number;
+  isLiked?: boolean;
 }
 
 export default function PostCard({
@@ -63,6 +65,8 @@ export default function PostCard({
   quotedReview,
   taggedCast,
   isNew,
+  likesCount = 0,
+  isLiked = false
 }: PostProps) {
   const router = useRouter();
   const { user } = useUser();
@@ -74,6 +78,11 @@ export default function PostCard({
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [localIsLocked, setLocalIsLocked] = useState(isLocked);
+  
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount);
+  const [localIsLiked, setLocalIsLiked] = useState(isLiked);
+  const [isLiking, setIsLiking] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -141,6 +150,74 @@ export default function PostCard({
      }
   }, [taggedCast]);
   
+  const handleLike = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (!user) {
+      if (typeof window !== 'undefined') {
+          sessionStorage.setItem('authRedirect', `/cast/${castId}`);
+      }
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (isLiking) return;
+    setIsLiking(true);
+
+    const prevIsLiked = localIsLiked;
+    const prevCount = localLikesCount;
+
+    setLocalIsLiked(!prevIsLiked);
+    setLocalLikesCount(prevIsLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+
+    try {
+      if (prevIsLiked) {
+        await supabase
+          .from('sns_post_likes')
+          .delete()
+          .match({ post_id: id, user_id: user.id });
+      } else {
+        await supabase
+          .from('sns_post_likes')
+          .insert({ post_id: id, user_id: user.id });
+      }
+    } catch (err) {
+      console.error("Like toggle error:", err);
+      setLocalIsLiked(prevIsLiked);
+      setLocalLikesCount(prevCount);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleShare = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const shareUrl = `${window.location.origin}/cast/${castId}`;
+    const shareData = {
+      title: `${castName}の投稿`,
+      text: content ? content.substring(0, 40) + '...' : `${castName}さんの投稿をチェック`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (err) {
+      console.log('Share error or cancelled:', err);
+    }
+  };
+
   const handleDirectFollow = async () => {
       if (!user) return;
       try {
@@ -455,14 +532,17 @@ export default function PostCard({
                     </div>
                     
                     <div className="flex items-center gap-3 shrink-0">
-                        <button className="flex items-center gap-1 text-[#777777] hover:text-[#FF5C8A] transition-colors">
-                            <Heart size={14} />
-                            <span className="text-[10px] font-bold">12</span>
+                        <button 
+                            onClick={handleLike}
+                            className={`flex items-center gap-1 transition-colors ${localIsLiked ? 'text-[#E02424]' : 'text-[#777777] hover:text-[#FF5C8A]'}`}
+                        >
+                            <Heart size={14} className={localIsLiked ? 'fill-[#E02424]' : ''} />
+                            <span className="text-[10px] font-bold">{localLikesCount > 0 ? localLikesCount : ''}</span>
                         </button>
                         <button className="flex items-center gap-1 text-[#777777] hover:text-black transition-colors">
                             <Repeat2 size={14} />
                         </button>
-                        <button className="flex items-center gap-1 text-[#777777] hover:text-black transition-colors">
+                        <button onClick={handleShare} className="flex items-center gap-1 text-[#777777] hover:text-black transition-colors">
                             <Share size={14} />
                         </button>
                         {canManage && (
@@ -554,6 +634,10 @@ export default function PostCard({
             taggedCastScore={taggedCastScore}
             isLocked={localIsLocked}
             onUnlockRequest={handleAutoUnlock}
+            likesCount={localLikesCount}
+            isLiked={localIsLiked}
+            onLikeToggle={handleLike}
+            onShare={handleShare}
          />
       )}
 
