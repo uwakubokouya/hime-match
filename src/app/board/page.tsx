@@ -125,6 +125,7 @@ export default function BoardPage() {
         const { data: campaignData } = await supabase
             .from('sns_ad_campaigns')
             .select('id, display_mode')
+            .eq('placement', 'board')
             .eq('is_active', true)
             .limit(1)
             .single();
@@ -404,7 +405,7 @@ export default function BoardPage() {
                                                   SPONSORED
                                               </div>
                                           )}
-                                          <div className="absolute top-2 right-2 bg-gradient-to-r from-[#FF5C8A] to-[#FF2D55] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-sm shadow-sm">
+                                          <div className="absolute top-2 right-2 bg-gradient-to-r from-[#FF5C8A] to-[#B259FF] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-sm shadow-sm border border-white">
                                               PR
                                           </div>
                                           <div className="p-3 border-t border-[#E5E5E5]">
@@ -423,7 +424,7 @@ export default function BoardPage() {
                                                   SPONSORED
                                               </div>
                                           )}
-                                          <div className="absolute top-2 right-2 bg-gradient-to-r from-[#FF5C8A] to-[#FF2D55] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-sm shadow-sm">
+                                          <div className="absolute top-2 right-2 bg-gradient-to-r from-[#FF5C8A] to-[#B259FF] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-sm shadow-sm border border-white">
                                               PR
                                           </div>
                                           <div className="p-3 border-t border-[#E5E5E5]">

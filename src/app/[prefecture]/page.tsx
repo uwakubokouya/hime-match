@@ -1,7 +1,7 @@
 "use client";
 import PostCard from "@/components/feed/PostCard";
 import AdminHomeContent from "@/components/admin/AdminHomeContent";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUser } from "@/providers/UserProvider";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -91,7 +91,57 @@ export default function Home() {
   }, [user, isUserLoading]);
 
   const [posts, setPosts] = useState<any[]>([]);
+  const [adContents, setAdContents] = useState<any[]>([]);
+  const [displayMode, setDisplayMode] = useState<'random'|'ordered'>('random');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAd, setSelectedAd] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchAds = async () => {
+        try {
+            let query = supabase
+                .from('sns_ad_campaigns')
+                .select('id, display_mode, target_area')
+                .eq('placement', 'home_feed')
+                .eq('is_active', true);
+                
+            if (prefecture && prefecture !== '全国') {
+                query = query.or(`target_area.eq.all,target_area.eq.${prefecture}`);
+            } else {
+                query = query.eq('target_area', 'all');
+            }
+            
+            const { data: campaigns } = await query;
+            if (campaigns && campaigns.length > 0) {
+                // 該当県に完全一致するものを最優先、次にallを優先する
+                const campaignData = campaigns.find(c => c.target_area === prefecture) || campaigns.find(c => c.target_area === 'all') || campaigns[0];
+                
+                setDisplayMode(campaignData.display_mode);
+                const { data: contentData } = await supabase
+                    .from('sns_ad_contents')
+                    .select('*')
+                    .eq('campaign_id', campaignData.id)
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true });
+                    
+                if (contentData) setAdContents(contentData);
+            }
+        } catch(e) {}
+    };
+    fetchAds();
+  }, [prefecture]);
+
+  const getAdForIndex = (index: number) => {
+      if (!adContents.length) return null;
+      if (displayMode === 'ordered') {
+          return adContents[index % adContents.length];
+      } else {
+          const seededRandom = Math.sin(index + 1) * 10000;
+          const randomIndex = Math.floor((seededRandom - Math.floor(seededRandom)) * adContents.length);
+          return adContents[randomIndex];
+      }
+  };
+
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showLikesModal, setShowLikesModal] = useState(false);
@@ -892,33 +942,79 @@ export default function Home() {
               </div>
             ) : activePosts.length > 0 ? (
               <div className="columns-2 gap-3">
-                {activePosts.map(post => (
-                  <PostCard 
-                    key={post.id} 
-                    id={post.id}
-                    castId={post.cast_id}
-                    castName={post.sns_profiles?.name || "Unknown"}
-                    castImage={post.sns_profiles?.avatar_url || "/images/no-photo.jpg"}
-                    timeAgo={getTimeAgo(post.created_at)}
-                    content={post.content}
-                    images={post.images || []}
-                    isWorkingToday={post.isWorkingToday}
-                    slotsLeft={post.slotsLeft}
-                    nextAvailableTime={post.nextAvailableTime}
-                    statusText={post.statusText}
-                    onDelete={handleDeletePost}
-                    isLocked={post.isLocked}
-                    lockReason={post.lockReason}
-                    storeName={post.storeName}
-                    storeProfileId={post.storeProfileId}
-                    postType={post.post_type}
-                    quotedReview={post.sns_reviews}
-                    taggedCast={post.tagged_cast}
-                    isNew={post.isNew}
-                    likesCount={post.likesCount}
-                    isLiked={post.isLiked}
-                  />
-                ))}
+                {activePosts.map((post, index) => {
+                  const globalIndex = page * POSTS_PER_PAGE + index;
+                  const isAdSpot = (globalIndex + 1) % 6 === 0;
+                  const adIndex = displayMode === 'random' ? Math.floor(index / 6) : Math.floor(globalIndex / 6);
+                  const ad = isAdSpot ? getAdForIndex(adIndex) : null;
+                  const adHref = ad?.store_id ? `/cast/${ad.store_id}` : (ad?.link_url || '#');
+
+                  return (
+                    <React.Fragment key={post.id}>
+                      <PostCard 
+                        id={post.id}
+                        castId={post.cast_id}
+                        castName={post.sns_profiles?.name || "Unknown"}
+                        castImage={post.sns_profiles?.avatar_url || "/images/no-photo.jpg"}
+                        timeAgo={getTimeAgo(post.created_at)}
+                        content={post.content}
+                        images={post.images || []}
+                        isWorkingToday={post.isWorkingToday}
+                        slotsLeft={post.slotsLeft}
+                        nextAvailableTime={post.nextAvailableTime}
+                        statusText={post.statusText}
+                        onDelete={handleDeletePost}
+                        isLocked={post.isLocked}
+                        lockReason={post.lockReason}
+                        storeName={post.storeName}
+                        storeProfileId={post.storeProfileId}
+                        postType={post.post_type}
+                        quotedReview={post.sns_reviews}
+                        taggedCast={post.tagged_cast}
+                        isNew={post.isNew}
+                        likesCount={post.likesCount}
+                        isLiked={post.isLiked}
+                      />
+                      {ad && (
+                        <div className="break-inside-avoid mb-4">
+                          <div className="relative p-[3px] rounded-xl overflow-hidden shadow-[0_0_12px_rgba(255,92,138,0.4)] hover:shadow-[0_0_20px_rgba(255,92,138,0.6)] transition-all group/ad">
+                              {/* Glowing Spinning Border */}
+                              <div 
+                                className="absolute inset-[-100%] animate-spin blur-[2px]" 
+                                style={{ animationDuration: '2s', background: 'conic-gradient(from 0deg, transparent 40%, #FF5C8A 80%, #FFB8D2 95%, #FFFFFF 100%)' }}
+                              />
+                              <div 
+                                className="absolute inset-[-100%] animate-spin blur-[2px]" 
+                                style={{ animationDuration: '2s', background: 'conic-gradient(from 180deg, transparent 40%, #FF2D55 80%, #FF8FB3 95%, #FFFFFF 100%)' }}
+                              />
+                              
+                              {/* Inner Card */}
+                              <button onClick={() => setSelectedAd(ad)} className="relative block w-full text-left overflow-hidden rounded-[9px] bg-white z-10 transition-opacity">
+                                  <div className="relative w-full bg-[#F5F5F5]">
+                                      {ad.image_url ? (
+                                          <img src={ad.image_url} alt={ad.title || "PR"} className="w-full h-auto object-contain" />
+                                      ) : (
+                                          <div className="w-full aspect-[4/3] flex items-center justify-center text-gray-400 font-bold">SPONSORED</div>
+                                      )}
+                                      <div className="absolute top-2 right-2 bg-gradient-to-r from-[#FF5C8A] to-[#B259FF] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-sm shadow-sm border border-white">
+                                          PR
+                                      </div>
+                                  </div>
+                                  <div className="p-3 border-t border-[#E5E5E5]">
+                                      <h3 className="font-bold text-xs text-black line-clamp-1 group-hover/ad:text-[#FF5C8A] transition-colors">{ad.title || 'スポンサー広告'}</h3>
+                                      {ad.description && (
+                                        <p className="text-[10px] text-[#777777] line-clamp-2 leading-relaxed mt-1">
+                                          {ad.description}
+                                        </p>
+                                      )}
+                                  </div>
+                              </button>
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             ) : (
               <div className="py-20 text-center text-[#777777] w-full">
@@ -1011,6 +1107,48 @@ export default function Home() {
                  )}
               </div>
            </div>
+        </div>
+      )}
+      {/* PR Detail Modal */}
+      {selectedAd && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 pt-14 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm">
+            <button 
+              onClick={() => setSelectedAd(null)}
+              className="absolute -top-12 right-0 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center z-10 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="bg-white w-full rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="bg-[#FF5C8A] text-white text-[10px] font-bold tracking-widest px-4 py-2 flex justify-between items-center">
+                  <span>PR</span>
+                  <span className="text-[8px] text-white/80 font-normal">スポンサー</span>
+              </div>
+              
+              <div className="relative w-full bg-white pt-4">
+                  <img src={selectedAd.image_url} alt="PR" className="w-full h-auto max-h-[50vh] object-contain px-4" />
+              </div>
+              
+              <div className="p-5">
+                 {selectedAd.description && (
+                    <p className="text-sm text-[#333] leading-relaxed mb-6 font-medium whitespace-pre-wrap">
+                       {selectedAd.description}
+                    </p>
+                 )}
+                 
+                 <a 
+                   href={selectedAd.store_id ? `/cast/${selectedAd.store_id}` : (selectedAd.link_url || '#')}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   onClick={() => setSelectedAd(null)}
+                   className="block w-full py-3.5 bg-[#FF5C8A] text-white text-center text-xs font-bold tracking-widest rounded-full hover:opacity-90 shadow-sm transition-opacity"
+                 >
+                   詳しくはこちら
+                 </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

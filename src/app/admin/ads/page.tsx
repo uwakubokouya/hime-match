@@ -9,6 +9,7 @@ interface AdCampaign {
   id: string;
   name: string;
   target_area: string;
+  placement: 'board' | 'home_feed';
   max_slots: number;
   display_mode: 'random' | 'ordered';
   is_active: boolean;
@@ -61,6 +62,7 @@ export default function AdsManagementPage() {
   // Form states - Campaign
   const [cName, setCName] = useState('');
   const [cTargetArea, setCTargetArea] = useState('all');
+  const [cPlacement, setCPlacement] = useState<'board'|'home_feed'>('board');
   const [cMaxSlots, setCMaxSlots] = useState(5);
   const [cDisplayMode, setCDisplayMode] = useState<'random'|'ordered'>('random');
   const [cIsActive, setCIsActive] = useState(true);
@@ -139,6 +141,7 @@ export default function AdsManagementPage() {
   const resetCampaignForm = () => {
     setCName('');
     setCTargetArea('all');
+    setCPlacement('board');
     setCMaxSlots(5);
     setCDisplayMode('random');
     setCIsActive(true);
@@ -154,6 +157,7 @@ export default function AdsManagementPage() {
     setEditingCampaign(c);
     setCName(c.name);
     setCTargetArea(c.target_area || 'all');
+    setCPlacement(c.placement || 'board');
     setCMaxSlots(c.max_slots);
     setCDisplayMode(c.display_mode);
     setCIsActive(c.is_active);
@@ -169,6 +173,7 @@ export default function AdsManagementPage() {
       const payload = {
         name: cName,
         target_area: cTargetArea,
+        placement: cPlacement,
         max_slots: cMaxSlots,
         display_mode: cDisplayMode,
         is_active: cIsActive,
@@ -400,6 +405,10 @@ export default function AdsManagementPage() {
                     
                     <div className="flex items-center gap-6 mb-6">
                       <div>
+                        <p className="text-[10px] text-[#777] tracking-widest mb-1 uppercase">表示箇所</p>
+                        <p className="text-sm font-bold">{c.placement === 'home_feed' ? 'ホームフィード' : '掲示板'}</p>
+                      </div>
+                      <div>
                         <p className="text-[10px] text-[#777] tracking-widest mb-1 uppercase">配信エリア</p>
                         <p className="text-sm font-bold">{c.target_area === 'all' ? '全国' : c.target_area}</p>
                       </div>
@@ -454,6 +463,7 @@ export default function AdsManagementPage() {
                 <h2 className="text-xl font-bold tracking-widest">{activeCampaign.name}</h2>
               </div>
               <p className="text-xs text-[#777] tracking-widest flex items-center gap-4">
+                <span>表示箇所: <strong className="text-black">{activeCampaign.placement === 'home_feed' ? 'ホームフィード' : '掲示板'}</strong></span>
                 <span>配信: <strong className="text-black">{activeCampaign.target_area === 'all' ? '全国' : activeCampaign.target_area}</strong></span>
                 <span>登録状況: <strong className="text-black">{contents.length} / {activeCampaign.max_slots} 枠</strong></span>
                 <span>表示: <strong className="text-black">{activeCampaign.display_mode === 'ordered' ? '順番' : 'ランダム'}</strong></span>
@@ -592,6 +602,17 @@ export default function AdsManagementPage() {
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold tracking-widest mb-1.5 uppercase text-[#555]">表示箇所</label>
+                    <select 
+                      value={cPlacement} 
+                      onChange={e => setCPlacement(e.target.value as 'board'|'home_feed')}
+                      className="w-full border border-[#E5E5E5] p-2.5 text-sm outline-none focus:border-black transition-colors bg-white"
+                    >
+                      <option value="board">掲示板タイムライン</option>
+                      <option value="home_feed">ホームフィード</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[11px] font-bold tracking-widest mb-1.5 uppercase text-[#555]">最大枠数</label>
                     <div className="flex items-center border border-[#E5E5E5] focus-within:border-black transition-colors">
