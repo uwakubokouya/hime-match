@@ -46,7 +46,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     fetchThreadData();
     
     const fetchFav = async () => {
-        const { data } = await supabase.from('sns_board_favorites').select('thread_id').eq('user_id', user.id).eq('thread_id', id).single();
+        const { data } = await supabase.from('sns_board_favorites').select('thread_id').eq('user_id', user.id).eq('thread_id', id).maybeSingle();
         if (data) setIsFavorited(true);
     };
     fetchFav();
@@ -231,8 +231,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
             </h1>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-             <button onClick={toggleFavorite} className="p-2 text-[#E5E5E5] hover:text-[#E02424] transition-colors">
-                 <Star size={18} className={isFavorited ? 'fill-[#E02424] text-[#E02424]' : 'text-[#CCC]'} />
+             <button onClick={toggleFavorite} className="p-2 text-[#E5E5E5] hover:text-[#F5A623] transition-colors">
+                 <Star size={18} className={isFavorited ? 'fill-[#F5A623] text-[#F5A623]' : 'text-[#CCC]'} />
              </button>
              <button onClick={handleReportThread} className="p-2 text-[#777777] hover:text-[#E02424] transition-colors">
                  <Flag size={18} className="stroke-[1.5]" />

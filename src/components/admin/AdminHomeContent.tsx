@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { BarChart3, Bell, ShieldAlert, Settings, X, Search, Trash2, Clock, Users, Database, Star } from "lucide-react";
+import { BarChart3, Bell, ShieldAlert, Settings, X, Search, Trash2, Clock, Users, Database, Star, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { calculateUserRank } from '@/providers/UserProvider';
 
@@ -403,6 +403,10 @@ export default function AdminHomeContent({ activeTab }: AdminHomeContentProps) {
              <Link href="/admin/announcement" className="bg-white border border-[#E5E5E5] p-4 flex items-center gap-3 hover:border-black transition-colors">
                <Bell size={20} className="stroke-[1.5]" />
                <span className="text-[10px] font-bold tracking-widest">お知らせ配信</span>
+             </Link>
+             <Link href="/admin/ads" className="bg-white border border-[#E5E5E5] p-4 flex items-center gap-3 hover:border-black transition-colors">
+               <ImageIcon size={20} className="stroke-[1.5]" />
+               <span className="text-[10px] font-bold tracking-widest">広告管理 (PR)</span>
              </Link>
           </div>
         </div>

@@ -791,7 +791,6 @@ export default function SearchPage() {
     <div className="min-h-screen bg-white pb-24 font-light relative">
       {/* Header & Search Bar */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md pt-4">
-        <h1 className="text-sm font-bold tracking-widest text-center mb-4 uppercase">探す</h1>
         
         <div className="flex w-full mb-4 px-4">
             <div className="flex w-full border border-[#E5E5E5] rounded-md relative">
