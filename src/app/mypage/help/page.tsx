@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageCircle, Phone, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@/providers/UserProvider";
-import { AboutContent, FlowContent } from "./[slug]/page";
+import { AboutContent } from "./[slug]/page";
 
 export default function HelpAndSupportPage() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function HelpAndSupportPage() {
   
   // Accordion state
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
-  const [openGuideId, setOpenGuideId] = useState<string | null>(null);
+  const [openGuideIds, setOpenGuideIds] = useState<string[]>([]);
 
   const toggleFaq = (id: string) => {
       if (openFaqId === id) setOpenFaqId(null);
@@ -21,8 +21,9 @@ export default function HelpAndSupportPage() {
   };
 
   const toggleGuide = (id: string) => {
-      if (openGuideId === id) setOpenGuideId(null);
-      else setOpenGuideId(id);
+      setOpenGuideIds(prev => 
+          prev.includes(id) ? prev.filter(gid => gid !== id) : [...prev, id]
+      );
   };
 
   const faqs = [
@@ -39,7 +40,16 @@ export default function HelpAndSupportPage() {
       {
           id: "faq-3",
           q: "退会方法を教えてください",
-          a: "恐れ入りますが、防犯およびなりすまし防止の観点からアプリ上での即時退会は受け付けておりません。退会・アカウントの削除をご希望のお客様は、コンシェルジュデスク（LINEまたはお電話）までご連絡くださいませ。"
+      },
+      {
+          id: "faq-4",
+          q: "ネット予約はすぐに確定しますか？",
+          a: "ネット予約の場合、当店から確認のご連絡をさせて頂き、確認が取れ次第ご予約が確定となります。確定前に他のお客様からのご予約等がありましたらそちらが優先となりますのでご了承下さいませ。"
+      },
+      {
+          id: "faq-5",
+          q: "予約をキャンセルしたい場合はどうすればいいですか？",
+          a: "キャンセルにつきましては基本的にお電話でキャンセルの旨をお伝えくださいませ。キャンセル料金等は御座いませんが、キャンセルの履歴が残ってしまいます。キャンセルが一定回数を超えるとご予約不可となってしまいますので、ご予約の際はキャンセルの無いようよろしくお願い致します。"
       }
   ];
 
@@ -67,34 +77,16 @@ export default function HelpAndSupportPage() {
                         className="w-full flex items-center justify-between py-6 hover:bg-[#F9F9F9] transition-colors text-left"
                     >
                         <span className="text-xs tracking-widest">HimeMatchのご利用ガイド</span>
-                        <ChevronDown size={16} className={`text-[#777777] transition-transform duration-300 shrink-0 ${openGuideId === 'about' ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={16} className={`text-[#777777] transition-transform duration-300 shrink-0 ${openGuideIds.includes('about') ? 'rotate-180' : ''}`} />
                     </button>
                     <div 
-                        className={`overflow-hidden transition-all duration-500 ${openGuideId === 'about' ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
+                        className={`overflow-hidden transition-all duration-500 ${openGuideIds.includes('about') ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
                     >
                         <div className="pb-6 pt-0 px-2">
                             <AboutContent />
                         </div>
                     </div>
                 </div>
-                {!isCastOrStore && (
-                  <div className="flex flex-col">
-                      <button 
-                          onClick={() => toggleGuide('flow')}
-                          className="w-full flex items-center justify-between py-6 hover:bg-[#F9F9F9] transition-colors text-left"
-                      >
-                          <span className="text-xs tracking-widest">ご予約・キャンセルの流れ</span>
-                          <ChevronDown size={16} className={`text-[#777777] transition-transform duration-300 shrink-0 ${openGuideId === 'flow' ? 'rotate-180' : ''}`} />
-                      </button>
-                      <div 
-                          className={`overflow-hidden transition-all duration-500 ${openGuideId === 'flow' ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-                      >
-                          <div className="pb-6 pt-0 px-2">
-                              <FlowContent />
-                          </div>
-                      </div>
-                  </div>
-                )}
             </div>
         </section>
 
