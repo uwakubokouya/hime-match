@@ -98,37 +98,37 @@ export default function MyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] pb-24 font-light">
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E5E5E5] px-6 py-4">
-        <h1 className="text-sm font-normal tracking-widest font-bold">マイページ</h1>
+    <div className="min-h-screen bg-white pb-24 font-light">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md px-6 py-4">
+        <h1 className="text-sm font-bold tracking-widest">マイページ</h1>
       </header>
 
-      <main className="p-6 space-y-6">
+      <main className="flex flex-col px-8 md:px-12">
         {/* User Card */}
-        <div className="bg-white border border-[#E5E5E5] p-6 flex flex-col gap-4">
+        <div className="py-8 flex flex-col gap-4 border-b border-[#F5F5F5]">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 border border-black p-0.5 overflow-hidden">
+            <div className="w-16 h-16 rounded-full border border-[#E5E5E5] overflow-hidden shrink-0">
               {user?.avatar_url ? (
                  <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                 <div className="w-full h-full bg-[#E5E5E5] flex items-center justify-center text-[#777777]">
+                 <div className="w-full h-full bg-[#F9F9F9] flex items-center justify-center text-[#777777]">
                    <UserIcon size={24} className="stroke-[1.5]" />
                  </div>
               )}
             </div>
-            <div>
-              <h2 className="text-lg font-normal tracking-widest uppercase mb-1 flex items-center gap-2">
-                {user?.name || "ゲスト"}
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold tracking-widest uppercase mb-1 flex items-center gap-2 truncate">
+                <span className="truncate">{user?.name || "ゲスト"}</span>
                 {user?.is_vip && (
-                  <img src="/images/vip-crown.png" alt="VIP" className="h-5 object-contain" />
+                  <img src="/images/vip-crown.png" alt="VIP" className="h-5 object-contain shrink-0" />
                 )}
               </h2>
-              <div className="flex gap-2">
-                <p className="text-[10px] text-[#777777] tracking-widest bg-[#F9F9F9] inline-block px-2 py-0.5 border border-[#E5E5E5]">
+              <div className="flex flex-wrap gap-2">
+                <p className="text-[10px] text-[#777777] font-bold tracking-widest bg-[#F5F5F5] inline-block px-2 py-0.5 rounded-sm border border-[#E5E5E5]">
                   {user?.is_admin ? "ADMIN" : user?.role === "cast" ? "キャスト" : "お客様"}
                 </p>
                 {user?.role === 'customer' && user?.rank && (
-                  <p className={`text-[10px] tracking-[0.2em] font-bold inline-block px-3 py-0.5 border shadow-sm ${
+                  <p className={`text-[10px] tracking-[0.2em] font-bold inline-block px-3 py-0.5 rounded-sm border shadow-sm ${
                     user.rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
                     user.rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
                     user.rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
@@ -144,17 +144,17 @@ export default function MyPage() {
           
           {/* Points & Rank section for customers */}
           {user?.role === 'customer' && (
-             <div className="border-t border-[#E5E5E5] pt-4 mt-2">
-                <div className="flex justify-between items-end mb-4">
-                   <div className="text-[11px] tracking-widest text-[#777777]">現在のポイント</div>
-                   <div className="text-xl font-light tracking-widest">{user?.points || 0} <span className="text-xs">pt</span></div>
+             <div className="pt-4 mt-2">
+                <div className="flex justify-between items-end mb-4 px-1">
+                   <div className="text-[11px] font-bold tracking-widest text-[#777777]">現在のポイント</div>
+                   <div className="text-xl font-bold tracking-widest">{user?.points || 0} <span className="text-xs">pt</span></div>
                 </div>
                 
                 {/* Gacha Button */}
                 <button 
                   onClick={handleDailyGacha}
                   disabled={isGachaLoading}
-                  className="w-full py-3 bg-[#111] text-white text-xs tracking-widest border border-black hover:bg-white hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                  className="w-full py-3.5 bg-black text-white rounded-full text-xs font-bold tracking-widest shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                 >
                   {isGachaLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -167,76 +167,92 @@ export default function MyPage() {
         </div>
 
         {/* Post Creation Action (Cast & Admin Only) */}
-        <div className="space-y-4">
-          {(user?.role === 'cast' || user?.is_admin) && (
-            <Link href="/post" className="premium-btn w-full py-4 text-sm tracking-widest flex items-center justify-center gap-2">
-              <MessageSquare size={18} className="stroke-[1.5]" />
-              新しい投稿を作成
-            </Link>
-          )}
-          
-          {user?.role === 'store' && (
-            <>
-              <Link href="/admin/analytics" className="bg-white border border-black text-black w-full py-4 text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-colors mb-4">
-                <BarChart3 size={18} className="stroke-[1.5]" />
-                店舗アクセス解析
-              </Link>
-              <Link href="/mypage/reviews" className="bg-white border border-black text-black w-full py-4 text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-colors">
-                <div className="relative">
-                  <Check size={18} className="stroke-[1.5]" />
-                  {pendingReviewCount > 0 && (
-                    <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full group-hover:bg-black">
-                      <Bell size={12} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
+        {(user?.role === 'cast' || user?.is_admin || user?.role === 'store') && (
+          <div className="flex flex-col">
+            {(user?.role === 'cast' || user?.is_admin) && (
+              <div className="py-6 border-b border-[#F5F5F5]">
+                <Link href="/post" className="premium-btn w-full py-3.5 rounded-full text-xs font-bold tracking-widest shadow-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                  <MessageSquare size={16} className="stroke-[2]" />
+                  新しい投稿を作成
+                </Link>
+              </div>
+            )}
+            
+            {user?.role === 'store' && (
+              <>
+                <Link href="/admin/analytics" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <BarChart3 size={16} className="stroke-[2] text-black" />
+                    <span className="text-xs font-bold tracking-widest text-black">店舗アクセス解析</span>
+                  </div>
+                  <ChevronRight size={16} className="text-[#777777]" />
+                </Link>
+                <Link href="/mypage/reviews" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Check size={16} className="stroke-[2] text-black" />
+                      {pendingReviewCount > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full">
+                          <Bell size={10} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                口コミ管理
-              </Link>
-            </>
-          )}
-          {user?.is_admin && user?.role !== 'store' && (
-            <>
-              <Link href="/admin/announcement" className="bg-white border border-black text-black w-full py-4 text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-colors mb-4">
-                <Bell size={18} className="stroke-[1.5]" />
-                全店舗・ユーザー向けのお知らせ配信
-              </Link>
-              <Link href="/mypage/reviews" className="bg-white border border-black text-black w-full py-4 text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-colors">
-                <div className="relative">
-                  <Check size={18} className="stroke-[1.5]" />
-                  {pendingReviewCount > 0 && (
-                    <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full group-hover:bg-black">
-                      <Bell size={12} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
+                    <span className="text-xs font-bold tracking-widest text-black">口コミ管理</span>
+                  </div>
+                  <ChevronRight size={16} className="text-[#777777]" />
+                </Link>
+              </>
+            )}
+            {user?.is_admin && user?.role !== 'store' && (
+              <>
+                <Link href="/admin/announcement" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Bell size={16} className="stroke-[2] text-black" />
+                    <span className="text-xs font-bold tracking-widest text-black">全店舗・ユーザー向けのお知らせ配信</span>
+                  </div>
+                  <ChevronRight size={16} className="text-[#777777]" />
+                </Link>
+                <Link href="/mypage/reviews" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Check size={16} className="stroke-[2] text-black" />
+                      {pendingReviewCount > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full">
+                          <Bell size={10} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                VIP口コミ管理
-              </Link>
-            </>
-          )}
-        </div>
+                    <span className="text-xs font-bold tracking-widest text-black">VIP口コミ管理</span>
+                  </div>
+                  <ChevronRight size={16} className="text-[#777777]" />
+                </Link>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Menu Links */}
-        <div className="bg-white border border-[#E5E5E5]">
+        <div className="flex flex-col">
           {user?.role === 'cast' || user?.role === 'store' ? (
-            <Link href={`/cast/${user.id}`} className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href={`/cast/${user.id}`} className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4">
                 <UserIcon size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">プロフィール確認</span>
+                <span className="text-xs font-bold tracking-widest">プロフィール確認</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           ) : (
-            <Link href="/mypage/settings" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/settings" onClick={handleProtectedClick} className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4">
                 <UserIcon size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">アカウント設定</span>
+                <span className="text-xs font-bold tracking-widest">アカウント設定</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
           {user?.role !== 'cast' && (
-            <Link href="/mypage/notifications" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3 relative">
+            <Link href="/mypage/notifications" onClick={handleProtectedClick} className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4 relative">
                 <div className="relative">
                   {hasUnreadNotifications ? (
                     <Bell size={18} className="stroke-[1.5] text-[#E02424] fill-[#E02424] animate-ring origin-top" />
@@ -244,116 +260,111 @@ export default function MyPage() {
                     <Bell size={18} className="stroke-[1.5]" />
                   )}
                 </div>
-                <span className="text-xs tracking-widest">お知らせ</span>
+                <span className="text-xs font-bold tracking-widest">お知らせ</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
           {user && user.role !== 'cast' && user.role !== 'store' && (
-            <Link href="/mypage/my-reviews" className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/my-reviews" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4">
                 <Star size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">投稿した口コミ</span>
+                <span className="text-xs font-bold tracking-widest">投稿した口コミ</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
           {user?.role === 'cast' && (
-            <Link href="/mypage/received-reviews" className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors relative">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/received-reviews" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors relative">
+              <div className="flex items-center gap-4">
                 <div className="relative">
                   <Star size={18} className="stroke-[1.5]" />
                   {hasUnreadReviews && (
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                   )}
                 </div>
-                <span className="text-xs tracking-widest">自分への口コミ</span>
+                <span className="text-xs font-bold tracking-widest">自分への口コミ</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
           {user?.role === 'cast' ? (
-            <Link href="/mypage/settings?open=pref" className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/settings?open=pref" className="w-full py-6 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors border-b border-[#F5F5F5]">
+              <div className="flex items-center gap-4">
                 <Settings size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">推しポイント設定</span>
+                <span className="text-xs font-bold tracking-widest">推しポイント設定</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           ) : (
-            <Link href="/mypage/system-settings" onClick={handleProtectedClick} className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/system-settings" onClick={handleProtectedClick} className="w-full py-6 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors border-b border-[#F5F5F5]">
+              <div className="flex items-center gap-4">
                 <Settings size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">各種設定</span>
+                <span className="text-xs font-bold tracking-widest">各種設定</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
 
           {user?.role === 'cast' && (
-            <Link href="/mypage/dm-settings" className="w-full px-6 py-4 flex items-center justify-between border-t border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3">
+            <Link href="/mypage/dm-settings" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4">
                 <MessageSquare size={18} className="stroke-[1.5]" />
-                <span className="text-xs tracking-widest">DM受信設定</span>
+                <span className="text-xs font-bold tracking-widest">DM受信設定</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
 
           {user?.role === 'cast' && (
-            <Link href="/mypage/footprints" className="w-full px-6 py-4 flex items-center justify-between border-t border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-              <div className="flex items-center gap-3 relative">
+            <Link href="/mypage/footprints" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+              <div className="flex items-center gap-4 relative">
                 <div className="relative">
-                  <Footprints size={18} className="stroke-[1.5] text-[#777777]" />
+                  <Footprints size={18} className="stroke-[1.5] text-black" />
                   {hasUnreadFootprints && (
                     <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full">
-                      <Bell size={12} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
+                      <Bell size={10} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
                     </div>
                   )}
                 </div>
-                <span className="text-xs tracking-widest">足跡履歴</span>
+                <span className="text-xs font-bold tracking-widest">足跡履歴</span>
               </div>
               <ChevronRight size={16} className="text-[#777777]" />
             </Link>
           )}
-        </div>
 
-
-
-        {/* Support Links */}
-        <div className="bg-white border border-[#E5E5E5]">
-          <Link href="/mypage/help" className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#F9F9F9] transition-colors">
-            <div className="flex items-center gap-3">
+          <Link href="/mypage/help" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+            <div className="flex items-center gap-4">
               <CircleHelp size={18} className="stroke-[1.5]" />
-              <span className="text-xs tracking-widest">ヘルプとサポート</span>
+              <span className="text-xs font-bold tracking-widest">ヘルプとサポート</span>
             </div>
             <ChevronRight size={16} className="text-[#777777]" />
           </Link>
-          <Link href="/mypage/feedback" className="w-full px-6 py-4 flex items-center justify-between border-t border-[#E5E5E5] hover:bg-[#F9F9F9] transition-colors">
-            <div className="flex items-center gap-3">
+          <Link href="/mypage/feedback" className="w-full py-6 flex items-center justify-between border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
+            <div className="flex items-center gap-4">
               <MessageSquare size={18} className="stroke-[1.5]" />
-              <span className="text-xs tracking-widest">ご意見・ご要望</span>
+              <span className="text-xs font-bold tracking-widest">ご意見・ご要望</span>
             </div>
             <ChevronRight size={16} className="text-[#777777]" />
           </Link>
         </div>
 
         {/* Logout / Login Button */}
-        <div className="pt-4">
+        <div className="pt-10 pb-10">
           {user ? (
             <button 
               onClick={() => logout()}
-              className="w-full py-4 border border-black bg-white text-black hover:bg-black hover:text-white transition-colors flex items-center justify-center gap-2 group"
+              className="w-full py-4 bg-white border border-[#E5E5E5] text-[#E02424] rounded-full text-xs font-bold tracking-widest shadow-sm hover:bg-[#F9F9F9] transition-colors flex items-center justify-center gap-2"
             >
-              <LogOut size={16} className="stroke-[1.5]" />
-              <span className="text-[10px] font-medium tracking-widest uppercase">ログアウト</span>
+              <LogOut size={16} className="stroke-[2]" />
+              ログアウト
             </button>
           ) : (
             <button 
               onClick={() => setShowAuthModal(true)}
-              className="w-full py-4 border border-black bg-black text-white hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2 group"
+              className="premium-btn w-full py-4 rounded-full text-xs font-bold tracking-widest shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
             >
-              <span className="text-[10px] font-medium tracking-widest uppercase">ログイン / 新規会員登録</span>
+              ログイン / 新規会員登録
             </button>
           )}
         </div>

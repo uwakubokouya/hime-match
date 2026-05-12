@@ -52,7 +52,7 @@ const SystemContent = () => (
     </div>
 );
 
-const AboutContent = () => {
+export const AboutContent = () => {
     const { user } = useUser();
 
     return (
@@ -109,7 +109,7 @@ const AboutContent = () => {
     );
 };
 
-const FlowContent = () => (
+export const FlowContent = () => (
     <div className="space-y-8 animate-in fade-in duration-500 font-light text-[13px] leading-loose tracking-widest text-[#333]">
         <section>
             <h3 className="font-bold text-black border-b border-black pb-2 mb-4">ご予約について</h3>
