@@ -827,7 +827,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id]);
 
-  const handleFollow = async () => {
+  const handleFollow = async (eOrState?: any) => {
     if (!user) {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('authRedirect', `/cast/${id}`);
@@ -841,6 +841,9 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
        alert("無効なユーザーIDです。デモ版のためフォロー処理は行われません。");
        return;
     }
+
+    const targetState = typeof eOrState === 'boolean' ? eOrState : !isFollowing;
+    if (isFollowing === targetState) return;
 
     const updatePostsLockStatus = (newIsFollowing: boolean) => {
        setPosts(prevPosts => prevPosts.map(p => {
@@ -872,9 +875,9 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
     };
     
     // Optimistic Update
-    updatePostsLockStatus(!isFollowing);
+    updatePostsLockStatus(targetState);
 
-    if (isFollowing) {
+    if (!targetState) {
         setIsFollowing(false);
         setFollowerCount(prev => Math.max(0, prev - 1));
         await supabase

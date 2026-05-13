@@ -27,7 +27,7 @@ interface PostProps {
   lockReason?: string;
   showFollowButton?: boolean;
   isFollowing?: boolean;
-  onFollowToggle?: () => void;
+  onFollowToggle?: (newState: boolean) => void;
   storeName?: string;
   storeProfileId?: string;
   postType?: string;
@@ -261,7 +261,7 @@ export default function PostCard({
               if (!error) {
                   setLocalIsFollowing(false);
                   if (isLocked) setLocalIsLocked(true);
-                  if (onFollowToggle) onFollowToggle();
+                  if (onFollowToggle) onFollowToggle(false);
                   return true;
               }
           } else {
@@ -271,7 +271,7 @@ export default function PostCard({
               if (!error || error.code === '23505') {
                   setLocalIsLocked(false);
                   setLocalIsFollowing(true);
-                  if (onFollowToggle) onFollowToggle();
+                  if (onFollowToggle) onFollowToggle(true);
                   return true;
               }
           }
