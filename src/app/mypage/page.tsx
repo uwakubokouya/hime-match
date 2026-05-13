@@ -128,7 +128,7 @@ export default function MyPage() {
                   {user?.is_admin ? "ADMIN" : user?.role === "cast" ? "キャスト" : "お客様"}
                 </p>
                 {user?.role === 'customer' && user?.rank && (
-                  <p className={`text-[10px] tracking-[0.2em] font-bold inline-block px-3 py-0.5 rounded-sm border shadow-sm ${
+                  <p className={`text-[10px] tracking-[0.2em] font-bold inline-block px-3 py-1 rounded-full border shadow-sm ${
                     user.rank === 'Platinum' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#E5E4E2] border-[#E5E4E2]' :
                     user.rank === 'Gold' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#D4AF37] border-[#D4AF37]' :
                     user.rank === 'Silver' ? 'bg-gradient-to-br from-[#222] to-[#000] text-[#C0C0C0] border-[#C0C0C0]' :
@@ -154,12 +154,15 @@ export default function MyPage() {
                 <button 
                   onClick={handleDailyGacha}
                   disabled={isGachaLoading}
-                  className="w-full py-3.5 bg-black text-white rounded-full text-xs font-bold tracking-widest shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                  className="premium-btn w-full py-3.5 rounded-full text-xs font-bold tracking-widest shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                 >
                   {isGachaLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
-                    "今日のログインガチャを引く"
+                    <>
+                      <Star size={16} className="fill-white" />
+                      今日のログインガチャを引く
+                    </>
                   )}
                 </button>
              </div>
@@ -372,30 +375,35 @@ export default function MyPage() {
 
       {/* Gacha Modal */}
       {gachaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
-          <div className="bg-[#111] border border-[#333] w-full max-w-sm p-8 text-center relative overflow-hidden">
+        <div 
+          className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && gachaState !== 'spinning') closeGachaModal();
+          }}
+        >
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-8 text-center relative shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
              
              {gachaState === 'spinning' && (
                <div className="flex flex-col items-center gap-6">
                  <div className="relative w-24 h-24 flex items-center justify-center">
                     {/* Spinning ring */}
-                    <div className="absolute inset-0 rounded-full border-4 border-[#333] border-t-[#D4AF37] animate-spin"></div>
-                    <Star size={32} className="text-[#D4AF37] animate-pulse" />
+                    <div className="absolute inset-0 rounded-full border-4 border-[#F5F5F5] border-t-black animate-spin"></div>
+                    <Star size={32} className="text-black animate-pulse" />
                  </div>
-                 <h3 className="text-white tracking-[0.3em] font-light text-sm animate-pulse">抽選中...</h3>
+                 <h3 className="text-black tracking-[0.3em] font-bold text-sm animate-pulse">抽選中...</h3>
                </div>
              )}
 
              {gachaState === 'result' && (
                <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
-                 <div className="w-24 h-24 flex items-center justify-center bg-gradient-to-br from-[#D4AF37] to-[#8A6A1C] rounded-full shadow-[0_0_30px_rgba(212,175,55,0.4)]">
+                 <div className="w-24 h-24 flex items-center justify-center bg-gradient-to-br from-[#FF5C8A] to-[#FF8BA7] rounded-full shadow-[0_0_30px_rgba(255,92,138,0.3)]">
                     <span className="text-4xl font-bold text-white drop-shadow-md">+{gachaResult?.added}</span>
                  </div>
                  <div>
-                   <h3 className="text-xl text-[#D4AF37] tracking-widest font-bold mb-2">ポイント獲得！</h3>
-                   <p className="text-xs text-[#AAA] tracking-widest">現在の累計: {gachaResult?.total} pt</p>
+                   <h3 className="text-xl text-black tracking-widest font-bold mb-2">ポイント獲得！</h3>
+                   <p className="text-xs text-[#777777] tracking-widest">現在の累計: {gachaResult?.total} pt</p>
                  </div>
-                 <button onClick={closeGachaModal} className="mt-4 w-full py-3 bg-white text-black font-bold text-xs tracking-widest hover:bg-[#CCC] transition-colors">
+                 <button onClick={closeGachaModal} className="mt-4 w-full py-4 bg-black text-white rounded-full font-bold text-xs tracking-widest hover:bg-black/80 transition-colors shadow-md">
                    閉じる
                  </button>
                </div>
@@ -403,14 +411,14 @@ export default function MyPage() {
 
              {gachaState === 'already_claimed' && (
                <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
-                 <div className="w-16 h-16 flex items-center justify-center bg-[#222] rounded-full">
-                    <Check size={24} className="text-[#777]" />
+                 <div className="w-16 h-16 flex items-center justify-center bg-[#F9F9F9] rounded-full">
+                    <Check size={24} className="text-[#999999]" />
                  </div>
                  <div>
-                   <h3 className="text-white tracking-widest font-bold mb-2">本日は受取済みです</h3>
-                   <p className="text-xs text-[#777] tracking-widest">また明日挑戦してください！</p>
+                   <h3 className="text-black tracking-widest font-bold mb-2">本日は受取済みです</h3>
+                   <p className="text-xs text-[#777777] tracking-widest">また明日挑戦してください！</p>
                  </div>
-                 <button onClick={closeGachaModal} className="mt-4 w-full py-3 border border-[#333] text-white text-xs tracking-widest hover:bg-[#222] transition-colors">
+                 <button onClick={closeGachaModal} className="mt-4 w-full py-4 bg-white border border-[#E5E5E5] text-black rounded-full text-xs font-bold tracking-widest shadow-sm hover:bg-[#F9F9F9] transition-colors">
                    閉じる
                  </button>
                </div>
@@ -418,14 +426,14 @@ export default function MyPage() {
 
              {gachaState === 'error' && (
                <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
-                 <div className="w-16 h-16 flex items-center justify-center bg-[#311] border border-[#511] rounded-full">
-                    <X size={24} className="text-[#F55]" />
+                 <div className="w-16 h-16 flex items-center justify-center bg-red-50 border border-red-100 rounded-full">
+                    <X size={24} className="text-red-500" />
                  </div>
                  <div>
-                   <h3 className="text-[#F55] tracking-widest font-bold mb-2">エラー</h3>
-                   <p className="text-xs text-[#AAA] tracking-widest">{gachaErrorMsg}</p>
+                   <h3 className="text-red-500 tracking-widest font-bold mb-2">エラー</h3>
+                   <p className="text-xs text-[#777777] tracking-widest">{gachaErrorMsg}</p>
                  </div>
-                 <button onClick={closeGachaModal} className="mt-4 w-full py-3 border border-[#333] text-white text-xs tracking-widest hover:bg-[#222] transition-colors">
+                 <button onClick={closeGachaModal} className="mt-4 w-full py-4 bg-white border border-[#E5E5E5] text-black rounded-full text-xs font-bold tracking-widest shadow-sm hover:bg-[#F9F9F9] transition-colors">
                    閉じる
                  </button>
                </div>

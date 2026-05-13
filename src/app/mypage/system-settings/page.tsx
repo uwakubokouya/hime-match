@@ -150,15 +150,15 @@ export default function SystemSettingsPage() {
 
   // Helper Toggle Component
   const ToggleRow = ({ enabled, onChange, label, desc }: { enabled: boolean, onChange: (val: boolean) => void, label: string, desc?: string }) => (
-    <div className="flex items-center justify-between py-5 border-b border-[#E5E5E5] last:border-0">
+    <div className="flex items-center justify-between py-6 border-b border-[#F5F5F5] hover:bg-[#F9F9F9] transition-colors">
         <div className="pr-4">
-           <div className="text-sm font-medium tracking-widest text-black mb-1">{label}</div>
+           <div className="text-xs font-bold tracking-widest text-black mb-1">{label}</div>
            {desc && <div className="text-[10px] leading-relaxed text-[#777777] tracking-widest">{desc}</div>}
         </div>
         <button 
             type="button"
             onClick={() => onChange(!enabled)}
-            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${enabled ? 'bg-black' : 'bg-[#E5E5E5]'}`}
+            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ${enabled ? 'bg-[#FF5C8A] shadow-[0_0_8px_rgba(255,92,138,0.4)]' : 'bg-[#E5E5E5]'}`}
         >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
         </button>
@@ -166,17 +166,17 @@ export default function SystemSettingsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col font-light">
+    <div className="min-h-screen bg-white flex flex-col font-light pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E5E5E5] flex items-center px-4 py-4">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md flex items-center px-6 py-4">
         <button onClick={() => router.back()} className="text-black hover:text-[#777777] p-2 -ml-2 transition-colors">
           <ChevronLeft size={24} className="stroke-[1.5]" />
         </button>
         <h1 className="text-sm font-bold tracking-widest absolute left-1/2 -translate-x-1/2">各種設定</h1>
       </header>
 
-      <main className="p-6 pb-20">
-        <div className="bg-white border border-[#E5E5E5] px-6">
+      <main className="flex flex-col px-8 md:px-12 pt-4">
+        <div className="flex flex-col">
             <ToggleRow 
                 label="プッシュ通知" 
                 desc="アプリからの全体的な新着通知を受け取ります。"
@@ -234,7 +234,7 @@ export default function SystemSettingsPage() {
         </div>
 
         {user?.role === 'system' && (
-          <div className="bg-white border border-[#E5E5E5] px-6 mt-6">
+          <div className="flex flex-col mt-4">
               <ToggleRow 
                   label="福岡限定テストモード" 
                   desc="【システム専用設定】アプリ全体を強制的に福岡エリアのみに限定し、エリア選択を隠します。"

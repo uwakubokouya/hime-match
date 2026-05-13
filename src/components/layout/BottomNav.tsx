@@ -151,14 +151,14 @@ export default function BottomNav() {
       
       <Link href="/mypage" className="flex flex-col items-center gap-1 hover:text-black transition-colors relative">
         <div className="relative">
-          <Menu size={20} className="stroke-2" />
+          <Menu size={20} className={pathname === '/mypage' || pathname?.startsWith('/mypage/') ? 'text-black stroke-[2.5]' : 'stroke-2'} />
           {(hasUnreadNotifications || (role === 'cast' && (hasUnreadFootprints || hasUnreadReviews)) || hasPendingReviews) && (
             <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full">
               <Bell size={12} className="text-[#E02424] fill-[#E02424] animate-ring origin-top" />
             </div>
           )}
         </div>
-        <span className="text-[10px] font-normal tracking-widest">メニュー</span>
+        <span className={`text-[10px] font-normal tracking-widest ${pathname === '/mypage' || pathname?.startsWith('/mypage/') ? 'text-black font-bold' : ''}`}>メニュー</span>
       </Link>
     </nav>
   );

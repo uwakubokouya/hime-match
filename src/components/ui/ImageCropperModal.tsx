@@ -43,58 +43,73 @@ export default function ImageCropperModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black text-white flex flex-col pt-12 pb-8 px-4 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
-        <button onClick={onCancel} disabled={isCropping || isProcessing} className="p-2 disabled:opacity-50">
-          <X size={24} />
-        </button>
-        <span className="text-sm font-bold tracking-widest text-[#E5E5E5]">位置を調整</span>
-        <button 
-          onClick={handleCrop} 
-          disabled={isCropping || isProcessing}
-          className="text-xs font-bold tracking-widest px-6 py-3 bg-white text-black rounded-none disabled:opacity-50"
-        >
-          {(isCropping || isProcessing) ? <Loader2 size={16} className="animate-spin mx-auto" /> : "完了"}
-        </button>
-      </div>
-
-      {/* Cropper Container */}
-      <div className="relative flex-1 w-full mt-4">
-        <Cropper
-          image={imageSrc}
-          crop={crop}
-          zoom={zoom}
-          aspect={aspectRatio}
-          onCropChange={setCrop}
-          onCropComplete={onCropCompleteFn}
-          onZoomChange={setZoom}
-          cropShape="rect"
-          showGrid={false}
-          style={{
-            containerStyle: { background: 'black' },
-            cropAreaStyle: { border: '1px solid white' }
-          }}
-        />
-      </div>
+    <div className="fixed inset-0 z-[300] flex flex-col justify-end">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" 
+        onClick={onCancel} 
+      />
       
-      {/* Bottom Controls */}
-      <div className="mt-8 flex flex-col items-center gap-6 text-[#777777] text-xs pb-4 z-10">
-         <div className="flex items-center gap-2">
-            <CropIcon size={16} />
-            <span className="tracking-widest">ピンチイン・ドラッグで調整</span>
-         </div>
-         {/* Simple Zoom Slider */}
-         <input
-          type="range"
-          value={zoom}
-          min={1}
-          max={3}
-          step={0.1}
-          aria-labelledby="Zoom"
-          onChange={(e) => setZoom(Number(e.target.value))}
-          className="w-2/3 accent-white h-1 bg-[#333333] rounded-lg appearance-none cursor-pointer"
-        />
+      {/* Modal Container */}
+      <div className="relative bg-white w-full h-[85vh] rounded-t-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 max-w-md mx-auto shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 bg-white sticky top-0 z-10">
+          <h2 className="font-bold text-sm tracking-widest text-black">位置を調整</h2>
+          <button 
+            onClick={onCancel} 
+            disabled={isCropping || isProcessing} 
+            className="text-[#777777] hover:text-black transition-colors disabled:opacity-50"
+          >
+            <X size={24} className="stroke-[1.5]" />
+          </button>
+        </div>
+
+        {/* Cropper Container */}
+        <div className="relative flex-1 w-full bg-white">
+          <div className="absolute inset-6">
+            <Cropper
+              image={imageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={aspectRatio}
+              onCropChange={setCrop}
+              onCropComplete={onCropCompleteFn}
+              onZoomChange={setZoom}
+              cropShape="rect"
+              showGrid={false}
+              style={{
+                containerStyle: { background: 'white' },
+                cropAreaStyle: { border: '2px solid #E5E5E5', boxShadow: '0 0 0 9999em rgba(255, 255, 255, 0.6)' }
+              }}
+            />
+          </div>
+        </div>
+        
+        {/* Bottom Controls */}
+        <div className="bg-white p-6 border-t border-[#E5E5E5] flex flex-col gap-6">
+           {/* Simple Zoom Slider */}
+           <div className="flex items-center gap-4 text-[#777777]">
+              <CropIcon size={20} className="stroke-[1.5]" />
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="flex-1 accent-[#FF5C8A] h-1.5 bg-[#E5E5E5] rounded-lg appearance-none cursor-pointer"
+              />
+           </div>
+           
+           <button 
+             onClick={handleCrop} 
+             disabled={isCropping || isProcessing}
+             className="w-full premium-btn py-4 flex items-center justify-center gap-2 tracking-widest text-sm font-bold disabled:opacity-50 transition-colors"
+           >
+             {(isCropping || isProcessing) ? <Loader2 size={18} className="animate-spin mx-auto" /> : "完了"}
+           </button>
+        </div>
       </div>
     </div>
   );

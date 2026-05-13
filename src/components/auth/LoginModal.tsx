@@ -304,7 +304,6 @@ export default function LoginModal({
               </div>
             )}
 
-            {/* Inputs styled like login/page.tsx (no borders, just bottom border) */}
             <div className="space-y-1 block">
               <label className="text-[10px] uppercase tracking-widest text-[#777777]">Phone Number</label>
               <input 
