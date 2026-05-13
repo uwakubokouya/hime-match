@@ -155,19 +155,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .select('id, created_at')
         .or(`user_id.is.null,user_id.eq.${userId}`)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(50); // Fetch recent ones to check for unread
 
-      if (data) {
+      if (data && data.length > 0) {
         try {
             const readIdsRaw = localStorage.getItem('read_notifications');
             const readIds = readIdsRaw ? JSON.parse(readIdsRaw) : [];
-            if (!readIds.includes(data.id)) {
-                setHasUnreadNotifications(true);
-            }
+            const hasUnread = data.some(n => !readIds.includes(n.id));
+            setHasUnreadNotifications(hasUnread);
         } catch (e) {
             setHasUnreadNotifications(true);
         }
+      } else {
+        setHasUnreadNotifications(false);
       }
     };
 

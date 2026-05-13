@@ -1817,7 +1817,12 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         ) : activeTab === 'timeline' ? (
             posts.length > 0 ? (
                 posts.map(post => (
-                  <PostCard key={post.id} {...post} />
+                  <PostCard 
+                      key={post.id} 
+                      {...post} 
+                      isFollowing={isFollowing}
+                      onFollowToggle={handleFollow}
+                  />
                 ))
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-[#777777]">

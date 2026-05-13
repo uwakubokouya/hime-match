@@ -1,0 +1,529 @@
+const fs = require('fs');
+const path = 'src/app/cast/[id]/page.tsx';
+
+let content = fs.readFileSync(path, 'utf8');
+
+const startMarker = `      // Fetch sns_user_preferences`;
+const endMarker = `       setIsInitialLoading(false);`;
+
+const startIndex = content.indexOf(startMarker);
+const endIndex = content.indexOf(endMarker) + endMarker.length;
+
+if (startIndex === -1 || endIndex === -1) {
+    console.error('Markers not found!');
+    process.exit(1);
+}
+
+const replacement = `      // --- Parallel Data Fetching ---
+      const promises = [];
+
+      // 1. Fetch Preferences
+      promises.push((async () => {
+          const { data: prefData } = await supabase
+              .from('sns_user_preferences')
+              .select('*')
+              .eq('user_id', actualCastId)
+              .maybeSingle();
+          if (prefData) {
+              setCastPreferences(prefData);
+          }
+      })());
+
+      // 2. Fetch Follower Stats
+      promises.push((async () => {
+          const { count } = await supabase
+            .from('sns_follows')
+            .select('*', { count: 'exact', head: true })
+            .eq('following_id', actualCastId);
+            
+          if (count !== null && count !== undefined) setFollowerCount(count);
+      })());
+
+      // 3. Fetch Follow Status & Posts
+      promises.push((async () => {
+          let followsCurrentCast = false;
+          if (user && user.id) {
+             const { data: followData } = await supabase
+               .from('sns_follows')
+               .select('follower_id')
+               .eq('follower_id', user.id)
+               .eq('following_id', actualCastId)
+               .maybeSingle();
+               
+             if (followData) {
+                 setIsFollowing(true);
+                 followsCurrentCast = true;
+             }
+          }
+
+          const { data: feedPosts } = await supabase
+            .from('sns_posts')
+            .select(\`
+              *,
+              quoted_review_id,
+              sns_reviews!sns_posts_quoted_review_id_fkey (
+                id, rating, score, visited_date, content, reviewer_id,
+                sns_profiles!sns_reviews_reviewer_id_fkey(name, avatar_url, is_vip)
+              ),
+              tagged_cast:sns_profiles!sns_posts_tagged_cast_id_fkey(id, name, avatar_url, is_vip, bio)
+            \`)
+            .eq('cast_id', actualCastId)
+            .order('is_pinned', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false });
+
+          if (feedPosts) {
+             const postIds = feedPosts.map(p => p.id);
+             let postLikesCount = {};
+             let myLikedPostIds = new Set();
+
+             if (postIds.length > 0) {
+                 const { data: likesData } = await supabase
+                   .from('sns_post_likes')
+                   .select('post_id, user_id')
+                   .in('post_id', postIds);
+                 
+                 if (likesData) {
+                     likesData.forEach(like => {
+                         postLikesCount[like.post_id] = (postLikesCount[like.post_id] || 0) + 1;
+                         if (user && like.user_id === user.id) {
+                             myLikedPostIds.add(like.post_id);
+                         }
+                     });
+                 }
+             }
+
+             const mappedPosts = feedPosts.map(p => {
+                 let isLocked = false;
+                 let lockReason = "";
+                 if (user?.id !== p.cast_id) {
+                     const type = p.post_type || "全員";
+                     if (type === "会員" && !user) {
+                         isLocked = true;
+                         lockReason = "会員限定の投稿です";
+                     } else if (type === "フォロワー" && (!user || !followsCurrentCast)) {
+                         isLocked = true;
+                         lockReason = "フォロワー限定の投稿です";
+                     }
+                 }
+                 return { ...p, isLocked, lockReason, likesCount: postLikesCount[p.id] || 0, isLiked: myLikedPostIds.has(p.id) };
+             });
+
+             setPosts(mappedPosts.map(p => {
+                 const publishDate = new Date(p.created_at);
+                 const now = new Date();
+                 const diffMinutes = Math.floor((now.getTime() - publishDate.getTime()) / 60000);
+                 const timeAgo = diffMinutes < 60 ? \`\${diffMinutes}分前\` : diffMinutes < 1440 ? \`\${Math.floor(diffMinutes / 60)}時間前\` : \`\${Math.floor(diffMinutes / 1440)}日前\`;
+                 
+                 return {
+                     id: p.id,
+                     castId: id,
+                     castName: castName,
+                     castImage: castImg,
+                     timeAgo,
+                     content: p.content,
+                     images: p.images || [],
+                     isWorkingToday: false,
+                     isLocked: p.isLocked,
+                     lockReason: p.lockReason,
+                     postType: p.post_type,
+                     isPinned: p.is_pinned,
+                     quotedReview: p.sns_reviews,
+                     taggedCast: p.tagged_cast,
+                     likesCount: p.likesCount,
+                     isLiked: p.isLiked,
+                     isNew: isNewCast
+                 };
+             }));
+          }
+      })());
+
+      // 4. Fetch Reviews
+      promises.push((async () => {
+         const { data: revs } = await supabase
+           .from('sns_reviews')
+           .select(\`
+             id, rating, score, visited_date, content, created_at, reviewer_id, visibility, status, reply_content, reply_created_at,
+             sns_profiles!sns_reviews_reviewer_id_fkey(name, avatar_url, is_vip)
+           \`)
+           .eq('target_cast_id', actualCastId)
+           .order('created_at', { ascending: false });
+
+         const isAdmin = user && (user.role === 'admin' || user.role === 'management' || user.role === 'system');
+         let finalRevs = (revs || []).filter((r) => {
+             if (r.status === 'rejected') return false;
+             if (r.status === 'pending') return user && user.id === r.reviewer_id;
+             if (r.visibility === 'secret') return user && (user.is_vip || isAdmin || user.id === r.reviewer_id);
+             return true;
+         });
+
+         if (!user?.is_vip && !isAdmin) {
+             const { data: secretPreview } = await supabase.rpc('get_secret_review_preview', { p_cast_id: actualCastId });
+             if (secretPreview && secretPreview.length > 0 && secretPreview[0].count > 0) {
+                 const count = Number(secretPreview[0].count);
+                 const ratings = secretPreview[0].preview_ratings || [];
+                 for (let i = 0; i < count; i++) {
+                     finalRevs.push({
+                         id: \`secret-dummy-\${i}\`,
+                         rating: ratings[i] || 5,
+                         score: null,
+                         visited_date: null,
+                         content: "VIP限定のプレミアム口コミです。VIP会員になると内容を閲覧できます。",
+                         created_at: new Date().toISOString(),
+                         visibility: 'secret',
+                         is_dummy: true,
+                         sns_profiles: { name: "VIP会員", avatar_url: "/images/no-photo.jpg", is_vip: true }
+                     });
+                 }
+             }
+         }
+
+         if (finalRevs.length > 0) {
+            setReviews(finalRevs);
+            const avg = finalRevs.reduce((sum, r) => sum + r.rating, 0) / finalRevs.length;
+            setReviewStats({ average: Math.round(avg * 10) / 10, count: finalRevs.length });
+            
+            const { data: likesData } = await supabase.from('sns_review_likes').select('review_id, user_id');
+            if (likesData) {
+                const counts = {};
+                const myLikes = new Set();
+                likesData.forEach(like => {
+                    counts[like.review_id] = (counts[like.review_id] || 0) + 1;
+                    if (user && user.id === like.user_id) myLikes.add(like.review_id);
+                });
+                setReviewLikesCount(counts);
+                setLikedReviews(myLikes);
+            }
+         } else {
+            setReviews([]);
+            setReviewStats({ average: 0, count: 0 });
+         }
+      })());
+
+      // 5. Fetch Customer Tab Data (if customer)
+      if (profile?.role === 'customer') {
+          promises.push((async () => {
+              const { data: postedRevs } = await supabase
+                .from('sns_reviews')
+                .select(\`
+                  id, rating, score, visited_date, content, created_at, target_cast_id, visibility, status, reply_content, reply_created_at
+                \`)
+                .eq('reviewer_id', actualCastId)
+                .order('created_at', { ascending: false });
+              
+              if (postedRevs && postedRevs.length > 0) {
+                  const reviewIds = postedRevs.map(r => r.id);
+                  const { data: likesData } = await supabase.from('sns_review_likes').select('review_id').in('review_id', reviewIds);
+                  const likesCount = {};
+                  if (likesData) {
+                      likesData.forEach(like => {
+                          likesCount[like.review_id] = (likesCount[like.review_id] || 0) + 1;
+                      });
+                  }
+
+                  const castIds = [...new Set(postedRevs.map(r => r.target_cast_id))].filter(Boolean);
+                  if (castIds.length > 0) {
+                      const { data: castProfiles } = await supabase.from('sns_profiles').select('id, name, avatar_url, is_vip, store_id').in('id', castIds);
+                      const { data: ctiCasts } = await supabase.from('casts').select('id, name, store_id').in('id', castIds);
+                      
+                      const profileMap = {};
+                      const storeIds = new Set();
+                      if (castProfiles) {
+                          castProfiles.forEach(p => {
+                              profileMap[p.id] = p;
+                              if (p.store_id) storeIds.add(p.store_id);
+                          });
+                      }
+                      if (ctiCasts) {
+                          ctiCasts.forEach(c => {
+                              if (!profileMap[c.id]) {
+                                  profileMap[c.id] = { name: c.name, avatar_url: null, is_vip: false, store_id: c.store_id };
+                              }
+                              if (c.store_id) storeIds.add(c.store_id);
+                          });
+                      }
+
+                      const storeMap = {};
+                      if (storeIds.size > 0) {
+                          const storeIdArray = Array.from(storeIds);
+                          const { data: legacyProfiles } = await supabase
+                              .from('profiles')
+                              .select('id, store_id, username, full_name')
+                              .in('store_id', storeIdArray)
+                              .eq('role', 'admin');
+                          
+                          if (legacyProfiles && legacyProfiles.length > 0) {
+                              const usernames = legacyProfiles.map(p => p.username).filter(Boolean);
+                              let snsProfilesMap = new Map();
+                              if (usernames.length > 0) {
+                                  const { data: snsProfiles } = await supabase.from('sns_profiles').select('id, name, avatar_url, phone').in('phone', usernames);
+                                  if (snsProfiles) {
+                                      snsProfiles.forEach(sp => snsProfilesMap.set(sp.phone, sp));
+                                  }
+                              }
+
+                              legacyProfiles.forEach(lp => {
+                                  const snsProfile = snsProfilesMap.get(lp.username);
+                                  if (snsProfile) {
+                                      storeMap[lp.store_id] = { id: snsProfile.id, name: snsProfile.name, avatar_url: snsProfile.avatar_url };
+                                  } else {
+                                      storeMap[lp.store_id] = { id: lp.id, name: lp.full_name || lp.username || 'お店', avatar_url: null };
+                                  }
+                              });
+                          }
+                      }
+
+                      const isAdmin = user && (user.role === 'admin' || user.role === 'management' || user.role === 'system');
+
+                      const reviewsWithProfiles = postedRevs.map(r => {
+                          const isAuthorized = user && (user.is_vip || isAdmin || user.id === r.reviewer_id);
+                          const isDummy = r.visibility === 'secret' && !isAuthorized;
+                          const castProfile = profileMap[r.target_cast_id] || { name: '不明なキャスト', avatar_url: null, is_vip: false };
+                          const storeProfile = castProfile.store_id ? storeMap[castProfile.store_id] : null;
+
+                          return {
+                              ...r,
+                              content: isDummy ? "VIP限定のプレミアム口コミです。VIP会員になると内容を閲覧できます。" : r.content,
+                              is_dummy: isDummy,
+                              sns_profiles: castProfile,
+                              storeProfile,
+                              likesCount: likesCount[r.id] || 0
+                          };
+                      });
+                      
+                      setPostedReviews(reviewsWithProfiles.filter(r => r.status !== 'rejected'));
+                  } else {
+                      setPostedReviews(postedRevs.filter(r => r.status !== 'rejected'));
+                  }
+              } else {
+                  setPostedReviews([]);
+              }
+
+              const { data: follows } = await supabase
+                .from('sns_follows')
+                .select(\`
+                  following_id,
+                  sns_profiles!sns_follows_following_id_fkey(name, avatar_url, bio, is_vip, store_id)
+                \`)
+                .eq('follower_id', actualCastId);
+              
+              if (follows) {
+                  const castsData = follows.map(f => ({
+                      id: f.following_id,
+                      ...f.sns_profiles,
+                      likes_count: 0,
+                      followers_count: 0
+                  }));
+
+                  const sIds = Array.from(new Set(castsData.map(c => c.store_id).filter(Boolean)));
+                  if (sIds.length > 0) {
+                      const { data: legacyProfiles } = await supabase
+                          .from('profiles')
+                          .select('store_id, full_name, username')
+                          .in('store_id', sIds)
+                          .eq('role', 'admin');
+                      
+                      const sMap = new Map();
+                      if (legacyProfiles) {
+                          legacyProfiles.forEach(p => {
+                              sMap.set(p.store_id, p.full_name || p.username || 'お店');
+                          });
+                      }
+                      
+                      castsData.forEach(c => {
+                          if (c.store_id) {
+                              c.store_name = sMap.get(c.store_id) || 'お店';
+                          }
+                      });
+                  }
+                  setFollowingCasts(castsData);
+              }
+          })());
+      }
+
+      // 6. Fetch Weekly Shifts & Today's Shift Status
+      promises.push((async () => {
+          const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+          const storeId = storeCast?.store_id || 'ef92279f-3f19-47e7-b542-69de5906ab9b';
+
+          const next14DaysPromises = Array.from({length: 14}, async (_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() + i);
+              const dateStr = d.toLocaleDateString('sv-SE').split('T')[0]; 
+              
+              const { data } = await supabase.rpc('get_public_availability', {
+                  p_store_id: storeId,
+                  p_date: dateStr
+              });
+              
+              const shift = data?.find(s => s.cast_id === storeCast?.id);
+              let text = "お休み";
+              
+              if (shift && shift.attendance_status !== 'absent' && shift.shift_start && shift.shift_end) {
+                  text = \`\${shift.shift_start} 〜 \${shift.shift_end}\`;
+              }
+
+              return {
+                  dateStr: dateStr,
+                  displayDate: \`\${d.getMonth() + 1}/\${d.getDate()}(\${weekDays[d.getDay()]})\`,
+                  text: text
+              }
+          });
+          
+          const next14Days = await Promise.all(next14DaysPromises);
+          setWeeklyShifts(next14Days);
+
+          if (storeCast?.id) {
+              const now = new Date();
+              const businessEndTime = await fetchBusinessEndTime(supabase);
+              const todayStr = getLogicalBusinessDate(now, businessEndTime.hour, businessEndTime.min);
+              const { data: availabilityData } = await supabase
+                .rpc('get_public_availability', {
+                    p_store_id: 'ef92279f-3f19-47e7-b542-69de5906ab9b',
+                    p_date: todayStr
+                });
+
+              let statusText = undefined;
+              let isWorkingToday = false;
+              let slotsLeft = null;
+              let nextAvailableTime = null;
+
+              if (availabilityData && availabilityData.length > 0) {
+                  const myAvails = availabilityData.filter(a => a.cast_id === storeCast.id);
+                  if (myAvails.length > 0) {
+                      const shift_start = myAvails[0].shift_start;
+                      const shift_end = myAvails[0].shift_end;
+                      const isAbsent = myAvails[0].attendance_status === 'absent';
+                      const bookings = myAvails.filter(a => a.booked_start).map(a => ({
+                          start: a.booked_start, end: a.booked_end
+                      }));
+                      
+                      statusText = "本日出勤中";
+                      isWorkingToday = true;
+                      
+                      const currentHour = now.getHours();
+                      const currentMin = now.getMinutes();
+                      const currentMinTotal = currentHour * 60 + currentMin;
+
+                      if (isAbsent) {
+                          statusText = "お休み";
+                          isWorkingToday = false;
+                           if (myAvails[0].next_shift_date) {
+                               const d = new Date(myAvails[0].next_shift_date);
+                               nextAvailableTime = \`次回出勤: \${d.getMonth() + 1}/\${d.getDate()}\`;
+                           }
+                      } else if (shift_end) {
+                          const eParts = shift_end.split(':');
+                          let eH = parseInt(eParts[0]);
+                          if (eH < 6) eH += 24;
+                          const eMin = eH * 60 + parseInt(eParts[1] || '0');
+                          const adjCurrentMin = currentHour < 6 ? currentHour * 60 + 24 * 60 + currentMin : currentMinTotal;
+                          if (adjCurrentMin >= eMin) {
+                              statusText = "受付終了";
+                              const next_shift_date = myAvails[0].next_shift_date;
+                              if (next_shift_date) {
+                                  const d = new Date(next_shift_date);
+                                  nextAvailableTime = \`次回出勤: \${d.getMonth() + 1}/\${d.getDate()}\`;
+                              } else {
+                                  nextAvailableTime = "次回出勤: 未定";
+                              }
+                          }
+                      }
+                      
+                      if (statusText === "本日出勤中") {
+                          let ssP = shift_start.split(':');
+                           let seP = shift_end.split(':');
+                           let ssH = parseInt(ssP[0]); if(ssH < 6) ssH += 24;
+                           let seH = parseInt(seP[0]); if(seH < 6) seH += 24;
+                           const ssM = ssH * 60 + parseInt(ssP[1] || '0');
+                           const seM = seH * 60 + parseInt(seP[1] || '0');
+                           const am = currentHour < 6 ? currentHour * 60 + 24 * 60 + currentMin : currentMinTotal;
+                           
+                           let cursorM = Math.max(am, ssM);
+                           
+                           const parsedBookings = bookings.map(b => {
+                               let bsH = parseInt(b.start.split(':')[0]); if(bsH < 6) bsH += 24;
+                               let beH = parseInt(b.end.split(':')[0]); if(beH < 6) beH += 24;
+                               return {
+                                   startM: bsH * 60 + parseInt(b.start.split(':')[1] || '0'),
+                                   endM: beH * 60 + parseInt(b.end.split(':')[1] || '0') + 10
+                               };
+                           }).sort((a, b) => a.startM - b.startM);
+
+                           const MIN_GAP = 50;
+                           let bumped = true;
+                           while (bumped && cursorM < seM) {
+                               bumped = false;
+                               for (const b of parsedBookings) {
+                                   if (b.startM < (cursorM + MIN_GAP) && b.endM > cursorM) {
+                                       if (cursorM < b.endM) {
+                                           cursorM = b.endM;
+                                           bumped = true;
+                                       }
+                                   }
+                               }
+                           }
+
+                            if (cursorM + MIN_GAP > seM) {
+                                 if (am >= seM) { statusText = "受付終了"; } else { statusText = "ご予約完売"; }
+                                if (myAvails[0] && myAvails[0].next_shift_date) {
+                                    const dt = new Date(myAvails[0].next_shift_date);
+                                    nextAvailableTime = \`次回出勤: \${dt.getMonth() + 1}/\${dt.getDate()}\`;
+                                } else {
+                                    nextAvailableTime = "次回出勤: 未定";
+                                }
+                            } else {
+                                if (cursorM <= am) {
+                                    nextAvailableTime = "待機中";
+                                } else {
+                                    let h = Math.floor(cursorM / 60);
+                                    let m = cursorM % 60;
+                                    if (h >= 24) h -= 24;
+                                    nextAvailableTime = \`\${h.toString().padStart(2, '0')}:\${m.toString().padStart(2, '0')}\`;
+                                }
+                            }
+                          if (shift_start && shift_end) {
+                              const sH = parseInt(shift_start.split(':')[0]);
+                              const eH = parseInt(shift_end.split(':')[0]) || 24;
+                              const totalSlots = (eH <= sH ? eH + 24 - sH : eH - sH);
+                              slotsLeft = Math.max(0, totalSlots - bookings.length);
+                          }
+                      }
+                  } else {
+                      const nextValid = next14Days.find(d => d.text !== "お休み");
+                      if (nextValid) {
+                          nextAvailableTime = \`次回出勤: \${nextValid.displayDate.split('(')[0]}\`;
+                      }
+                  }
+              } else {
+                  const nextValid = next14Days.find(d => d.text !== "お休み");
+                  if (nextValid) {
+                      nextAvailableTime = \`次回出勤: \${nextValid.displayDate.split('(')[0]}\`;
+                  }
+              }
+
+              setProfileData(prev => ({ 
+                  ...prev, 
+                  workingToday: isWorkingToday, 
+                  slotsLeft: slotsLeft,
+                  nextAvailableTime: nextAvailableTime,
+                  statusText: statusText
+              }));
+          } else {
+              const nextValid = next14Days.find(d => d.text !== "お休み");
+              let nextAvailableTime = null;
+              if (nextValid) {
+                  nextAvailableTime = \`次回出勤: \${nextValid.displayDate.split('(')[0]}\`;
+              }
+              setProfileData(prev => ({ 
+                  ...prev, 
+                  workingToday: false, 
+                  slotsLeft: null,
+                  nextAvailableTime: nextAvailableTime,
+                  statusText: undefined
+              }));
+          }
+      })());
+
+      // Wait for all promises to resolve concurrently
+      await Promise.all(promises);
+      setIsInitialLoading(false);
