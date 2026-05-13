@@ -481,6 +481,14 @@ export default function SearchPage() {
                     onChange={e => setSearchQuery(e.target.value)}
                     className="w-full outline-none bg-transparent placeholder:text-[#E5E5E5] text-sm tracking-widest text-black"
                 />
+                {searchQuery.length > 0 && (
+                    <button 
+                        onClick={() => setSearchQuery('')}
+                        className="p-1 -mr-1 text-[#777777] hover:text-black transition-colors"
+                    >
+                        <X size={16} className="stroke-[1.5]" />
+                    </button>
+                )}
             </div>
             <button 
                 onClick={() => {

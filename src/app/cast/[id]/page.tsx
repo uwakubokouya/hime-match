@@ -1615,7 +1615,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div className="mb-6">
-            <div className="flex flex-col gap-1 mb-4">
+            <div className="flex flex-col gap-1 mb-1">
                 <h1 className="text-2xl font-normal text-black flex items-center gap-2 uppercase tracking-widest flex-wrap">
                     {cast.name || "名称未設定"}
                     {profileData.is_vip && (
@@ -1637,7 +1637,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
             {profileData.storeName && profileData.storeProfileId && (
                 <Link href={`/cast/${profileData.storeProfileId}`} className="inline-block mt-1 mb-2">
-                  <span className="text-[10px] text-[#777777] bg-[#F9F9F9] border border-[#E5E5E5] px-2 py-0.5 tracking-widest hover:bg-[#E5E5E5] transition-colors">
+                  <span className="text-[10px] text-[#777777] bg-[#F9F9F9] border border-[#E5E5E5] px-2 py-0.5 tracking-widest hover:bg-[#E5E5E5] transition-colors rounded-md">
                     {profileData.storeName}
                   </span>
                 </Link>
@@ -1647,13 +1647,23 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
             </p>
 
             <div className="flex items-center justify-between text-xs tracking-widest text-[#777777]">
-                <button 
-                    onClick={() => handleShowFollowers()}
-                    disabled={cast.followers === 0}
-                    className="flex gap-1.5 items-baseline disabled:opacity-100 disabled:cursor-default hover:opacity-70 transition-opacity whitespace-nowrap"
-                >
-                    <strong className="text-black font-medium">{cast.followers}</strong> フォロワー
-                </button>
+                <div className="flex gap-4 items-baseline">
+                    <button 
+                        onClick={() => handleShowFollowers()}
+                        disabled={cast.followers === 0}
+                        className="flex gap-1.5 items-baseline disabled:opacity-100 disabled:cursor-default hover:opacity-70 transition-opacity whitespace-nowrap"
+                    >
+                        <strong className="text-black font-medium">{cast.followers}</strong> フォロワー
+                    </button>
+                    <div className="flex gap-1.5 items-baseline whitespace-nowrap">
+                        <strong className="text-black font-medium">
+                            {isCustomerProfile 
+                                ? postedReviews.reduce((sum, r) => sum + (reviewLikesCount[r.id] !== undefined ? reviewLikesCount[r.id] : (r.likesCount || 0)), 0)
+                                : posts.reduce((sum, post) => sum + (post.likesCount || 0), 0)
+                            }
+                        </strong> {isCustomerProfile ? '参考になった' : 'いいね'}
+                    </div>
+                </div>
                 {!isNonCastProfile && (
                 <div className="flex gap-1 items-center">
                     ステータス: 
