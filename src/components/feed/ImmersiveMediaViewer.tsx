@@ -82,7 +82,7 @@ export default function ImmersiveMediaViewer({
 
   const paginate = (newDirection: number) => {
     setDirection(newDirection);
-    setCurrentIndex((prev) => {
+    setCurrentIndex((prev: number) => {
       let next = prev + newDirection;
       if (next < 0) next = images.length - 1;
       if (next >= images.length) next = 0;
