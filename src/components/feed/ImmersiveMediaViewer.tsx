@@ -333,7 +333,7 @@ export default function ImmersiveMediaViewer({
              {images.length > 1 && (
                 <div className="flex items-center gap-1.5 mb-3">
                    <div className="flex gap-1">
-                      {images.map((_, idx) => (
+                      {images.map((_: string, idx: number) => (
                          <div key={idx} className={`h-1.5 rounded-full transition-all ${idx === currentIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'}`} />
                       ))}
                    </div>
