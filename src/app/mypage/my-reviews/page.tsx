@@ -23,6 +23,8 @@ interface Review {
       name: string;
       avatar_url?: string;
   };
+  likesCount?: number;
+  storeProfile?: any;
 }
 
 export default function MyReviewsPage() {

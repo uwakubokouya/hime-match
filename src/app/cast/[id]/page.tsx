@@ -256,7 +256,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
            .eq('target_cast_id', actualCastId)
            .order('created_at', { ascending: false });
 
-         const isAdmin = user && (user.role === 'admin' || user.role === 'management' || user.role === 'system');
+         const isAdmin = user && (['admin', 'management', 'system'].includes(user.role as string));
          let finalRevs = (revs || []).filter((r: any) => {
              if (r.status === 'rejected') return false;
              if (r.status === 'pending') return user && user.id === r.reviewer_id;
@@ -529,7 +529,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                       followers_count: 0
                   }));
 
-                  const sIds = Array.from(new Set(castsData.map(c => c.store_id).filter(Boolean)));
+                  const sIds = Array.from(new Set(castsData.map((c: any) => c.store_id).filter(Boolean)));
                   if (sIds.length > 0) {
                       const { data: legacyProfiles } = await supabase
                           .from('profiles')
