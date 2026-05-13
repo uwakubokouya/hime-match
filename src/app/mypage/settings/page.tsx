@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronDown, ArrowRight, Eye, EyeOff, SlidersHorizontal, X, Check, Camera, User as UserIcon, Lock, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronDown, ArrowRight, Eye, EyeOff, SlidersHorizontal, X, Check, Camera, User as UserIcon, Lock, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/providers/UserProvider";
 import ImageCropperModal from "@/components/ui/ImageCropperModal";
@@ -326,8 +326,9 @@ export default function AccountSettingsPage() {
 
       <main className="pb-32">
         {message && message.type === 'error' && (
-          <div className="mx-4 mt-4 p-4 border text-xs tracking-widest leading-relaxed border-red-500 bg-red-50 text-red-600">
-            {message.text}
+          <div className="mx-4 mt-4 mb-2 p-3 border border-red-200 bg-red-50 rounded-lg text-red-600 text-[10px] flex items-start gap-2 tracking-widest leading-relaxed shrink-0 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <span>{message.text}</span>
           </div>
         )}
 
@@ -418,16 +419,22 @@ export default function AccountSettingsPage() {
         <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div 
               className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" 
-              onClick={() => setIsAccountModalOpen(false)}
+              onClick={() => { setIsAccountModalOpen(false); setMessage(null); }}
           />
           <div className="relative bg-white w-full h-[85vh] rounded-t-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 max-w-md mx-auto shadow-2xl">
               <div className="flex items-center justify-between p-6 border-b border-[#E5E5E5] bg-white sticky top-0 z-10 shadow-sm">
                   <h2 className="font-bold text-sm tracking-widest">アカウント情報</h2>
-                  <button onClick={() => setIsAccountModalOpen(false)} className="text-[#777777] hover:text-black transition-colors">
+                  <button onClick={() => { setIsAccountModalOpen(false); setMessage(null); }} className="text-[#777777] hover:text-black transition-colors">
                       <X size={24} className="stroke-[1.5]" />
                   </button>
               </div>
               <div className="p-6 overflow-y-auto space-y-8 pb-32">
+                {message && message.type === 'error' && (
+                  <div className="mb-6 p-3 border border-red-200 bg-red-50 rounded-lg text-red-600 text-[10px] flex items-start gap-2 tracking-widest leading-relaxed shrink-0 animate-in fade-in slide-in-from-top-2">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>{message.text}</span>
+                  </div>
+                )}
                 <div className="space-y-2 block">
                   <label className="text-[10px] uppercase tracking-widest text-[#777777] font-bold">名前 (Name)</label>
                   <input 
