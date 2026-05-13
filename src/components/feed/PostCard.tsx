@@ -232,7 +232,7 @@ export default function PostCard({
               setLocalIsLocked(false);
               setLocalIsFollowing(true);
               setShowLockedPromptModal(false);
-              if (onFollowToggle) onFollowToggle();
+              if (onFollowToggle) onFollowToggle(true);
           } else {
               console.error('Follow error:', error);
           }
@@ -297,7 +297,7 @@ export default function PostCard({
                   .insert({ follower_id: user.id, following_id: castId });
               if (!error || error.code === '23505') {
                   setLocalIsFollowing(true);
-                  if (onFollowToggle) onFollowToggle();
+                  if (onFollowToggle) onFollowToggle(true);
               } else {
                   console.error(error);
                   return false;
