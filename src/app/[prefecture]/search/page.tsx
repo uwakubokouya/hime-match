@@ -18,7 +18,13 @@ export default function SearchPage() {
     }
   }, [prefecture, router]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`search_query_${prefecture}`) || "";
+    }
+    return "";
+  });
+  
   const [activeFilter, setActiveFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem(`search_tab_${prefecture}`);
@@ -29,24 +35,45 @@ export default function SearchPage() {
     return 'all';
   });
 
-  useEffect(() => {
-    if (activeFilter) {
-      sessionStorage.setItem(`search_tab_${prefecture}`, activeFilter);
-    }
-  }, [activeFilter, prefecture]);
-
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Filter Modal States
-  const [ageRange, setAgeRange] = useState({ min: "", max: "" });
-  const [cupRange, setCupRange] = useState({ min: "A", max: "H" });
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedPlays, setSelectedPlays] = useState<string[]>([]);
-  const [selectedOpOptions, setSelectedOpOptions] = useState<string[]>([]);
-  const [selectedSM, setSelectedSM] = useState<string[]>([]);
-  const [selectedBodyTypes, setSelectedBodyTypes] = useState<string[]>([]);
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
-  const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>([]);
+  const getSavedJSON = (key: string, fallback: any) => {
+      if (typeof window !== 'undefined') {
+          try {
+              const saved = sessionStorage.getItem(`search_${key}_${prefecture}`);
+              if (saved) return JSON.parse(saved);
+          } catch (e) {}
+      }
+      return fallback;
+  };
+
+  const [ageRange, setAgeRange] = useState<{min: string, max: string}>(() => getSavedJSON('age', { min: "", max: "" }));
+  const [cupRange, setCupRange] = useState<{min: string, max: string}>(() => getSavedJSON('cup', { min: "A", max: "H" }));
+  const [selectedDate, setSelectedDate] = useState<string>(() => getSavedJSON('date', ""));
+  const [selectedPlays, setSelectedPlays] = useState<string[]>(() => getSavedJSON('plays', []));
+  const [selectedOpOptions, setSelectedOpOptions] = useState<string[]>(() => getSavedJSON('options', []));
+  const [selectedSM, setSelectedSM] = useState<string[]>(() => getSavedJSON('sm', []));
+  const [selectedBodyTypes, setSelectedBodyTypes] = useState<string[]>(() => getSavedJSON('body', []));
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(() => getSavedJSON('features', []));
+  const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>(() => getSavedJSON('personalities', []));
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        sessionStorage.setItem(`search_query_${prefecture}`, searchQuery);
+        sessionStorage.setItem(`search_tab_${prefecture}`, activeFilter);
+        sessionStorage.setItem(`search_age_${prefecture}`, JSON.stringify(ageRange));
+        sessionStorage.setItem(`search_cup_${prefecture}`, JSON.stringify(cupRange));
+        sessionStorage.setItem(`search_date_${prefecture}`, JSON.stringify(selectedDate));
+        sessionStorage.setItem(`search_plays_${prefecture}`, JSON.stringify(selectedPlays));
+        sessionStorage.setItem(`search_options_${prefecture}`, JSON.stringify(selectedOpOptions));
+        sessionStorage.setItem(`search_sm_${prefecture}`, JSON.stringify(selectedSM));
+        sessionStorage.setItem(`search_body_${prefecture}`, JSON.stringify(selectedBodyTypes));
+        sessionStorage.setItem(`search_features_${prefecture}`, JSON.stringify(selectedFeatures));
+        sessionStorage.setItem(`search_personalities_${prefecture}`, JSON.stringify(selectedPersonalities));
+    }
+  }, [searchQuery, activeFilter, ageRange, cupRange, selectedDate, selectedPlays, selectedOpOptions, selectedSM, selectedBodyTypes, selectedFeatures, selectedPersonalities, prefecture]);
+
 
   // Custom Date Filtering State
   const [workingCastIdsForDate, setWorkingCastIdsForDate] = useState<string[]>([]);

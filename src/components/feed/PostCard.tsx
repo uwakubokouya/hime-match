@@ -37,6 +37,9 @@ interface PostProps {
   isNew?: boolean;
   likesCount?: number;
   isLiked?: boolean;
+  defaultFullscreen?: boolean;
+  onFullscreenClose?: () => void;
+  onLikeToggle?: (postId: string, newIsLiked: boolean, newCount: number) => void;
 }
 
 export default function PostCard({
@@ -66,14 +69,17 @@ export default function PostCard({
   taggedCast,
   isNew,
   likesCount = 0,
-  isLiked = false
+  isLiked = false,
+  defaultFullscreen = false,
+  onFullscreenClose,
+  onLikeToggle
 }: PostProps) {
   const router = useRouter();
   const { user } = useUser();
   const [isImagesRevealed, setIsImagesRevealed] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showLockedPromptModal, setShowLockedPromptModal] = useState(false);
-  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(defaultFullscreen ? 0 : null);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -170,8 +176,15 @@ export default function PostCard({
     const prevIsLiked = localIsLiked;
     const prevCount = localLikesCount;
 
-    setLocalIsLiked(!prevIsLiked);
-    setLocalLikesCount(prevIsLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+    const newIsLiked = !prevIsLiked;
+    const newCount = prevIsLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
+
+    setLocalIsLiked(newIsLiked);
+    setLocalLikesCount(newCount);
+    
+    if (onLikeToggle) {
+      onLikeToggle(id, newIsLiked, newCount);
+    }
 
     try {
       if (prevIsLiked) {
@@ -180,14 +193,25 @@ export default function PostCard({
           .delete()
           .match({ post_id: id, user_id: user.id });
       } else {
-        await supabase
+        const { data: existing } = await supabase
           .from('sns_post_likes')
-          .insert({ post_id: id, user_id: user.id });
+          .select('post_id')
+          .match({ post_id: id, user_id: user.id })
+          .maybeSingle();
+          
+        if (!existing) {
+          await supabase
+            .from('sns_post_likes')
+            .insert({ post_id: id, user_id: user.id });
+        }
       }
     } catch (err) {
       console.error("Like toggle error:", err);
       setLocalIsLiked(prevIsLiked);
       setLocalLikesCount(prevCount);
+      if (onLikeToggle) {
+        onLikeToggle(id, prevIsLiked, prevCount);
+      }
     } finally {
       setIsLiking(false);
     }
@@ -330,7 +354,7 @@ export default function PostCard({
   return (
     <>
       {!isDeletedLocally && (
-        <article className="break-inside-avoid mb-3 border border-[#E5E5E5] rounded-xl bg-white shadow-sm overflow-hidden flex flex-col relative">
+        <article className={`break-inside-avoid mb-3 border border-[#E5E5E5] rounded-xl bg-white shadow-sm overflow-hidden flex flex-col relative ${defaultFullscreen ? 'hidden' : ''}`}>
             
             {/* 1. Media (Top, edge-to-edge) */}
             {images.length > 0 && (
@@ -372,7 +396,7 @@ export default function PostCard({
 
                     {/* NEW Badge */}
                     {isNew && !shouldBlur && (
-                        <div className="absolute top-2 right-2 z-20 pointer-events-none">
+                        <div className="absolute top-2 right-2 z-20 pointer-events-none flex flex-col gap-1">
                             <div className="bg-gradient-to-br from-[#85C121] to-[#FFC107] text-white text-[10px] font-bold tracking-widest px-2.5 py-1 shadow-md rounded border border-white">
                                 NEW
                             </div>
@@ -621,7 +645,10 @@ export default function PostCard({
          <ImmersiveMediaViewer 
             images={images}
             initialIndex={fullscreenIndex}
-            onClose={() => setFullscreenIndex(null)}
+            onClose={() => {
+                setFullscreenIndex(null);
+                if (onFullscreenClose) onFullscreenClose();
+            }}
             castId={castId}
             castName={castName}
             castImage={castImage}

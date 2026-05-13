@@ -47,8 +47,9 @@ export default function ImmersiveMediaViewer({
   likesCount = 0,
   isLiked = false,
   onLikeToggle,
-  onShare
-}: ImmersiveMediaViewerProps) {
+  onShare,
+  ...props
+}: ImmersiveMediaViewerProps & any) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isFitMode, setIsFitMode] = useState(true);
   const [direction, setDirection] = useState(0);

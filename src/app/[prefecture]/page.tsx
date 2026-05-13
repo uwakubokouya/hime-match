@@ -713,6 +713,15 @@ export default function Home() {
     setPostToDelete(null);
   };
 
+  const handleFollow = (castId: string, newState: boolean) => {
+      setPosts(prev => prev.map(p => {
+          if (p.cast_id === castId) {
+              return { ...p, isFollowing: newState };
+          }
+          return p;
+      }));
+  };
+
     // フィルタリングはサーバー側（fetchPosts）で完了しているためそのまま返す
   const activePosts = posts || [];
 
@@ -974,6 +983,8 @@ export default function Home() {
                         isNew={post.isNew}
                         likesCount={post.likesCount}
                         isLiked={post.isLiked}
+                        isFollowing={post.isFollowing}
+                        onFollowToggle={(newState) => handleFollow(post.cast_id, newState)}
                       />
                       {ad && (
                         <div className="break-inside-avoid mb-4">

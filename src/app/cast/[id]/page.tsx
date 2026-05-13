@@ -897,6 +897,13 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const handlePostLikeToggle = (postId: string, newIsLiked: boolean, newCount: number) => {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newCount } : p));
+      if (selectedPost && selectedPost.id === postId) {
+          setSelectedPost((prev: any) => prev ? { ...prev, isLiked: newIsLiked, likesCount: newCount } : prev);
+      }
+  };
+
   const toggleReviewLike = async (reviewId: string) => {
     if (!user) {
         setShowAuthPrompt(true);
@@ -918,7 +925,16 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
     if (isLiked) {
         await supabase.from('sns_review_likes').delete().eq('review_id', reviewId).eq('user_id', user.id);
     } else {
-        await supabase.from('sns_review_likes').insert({ review_id: reviewId, user_id: user.id });
+        const { data: existing } = await supabase
+            .from('sns_review_likes')
+            .select('review_id')
+            .eq('review_id', reviewId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+        if (!existing) {
+            await supabase.from('sns_review_likes').insert({ review_id: reviewId, user_id: user.id });
+        }
     }
   };
 
@@ -1137,7 +1153,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                   className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" 
                   onClick={() => setShowPreferencesModal(false)}
               />
-              <div className="relative bg-white w-full max-h-[85vh] rounded-t-none overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 max-w-md mx-auto">
+              <div className="relative bg-white w-full max-h-[85vh] rounded-t-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 max-w-md mx-auto">
                   <div className="flex items-center justify-between p-6 border-b border-[#E5E5E5] bg-white sticky top-0 z-10 shadow-sm">
                       <h2 className="font-bold text-sm tracking-widest flex items-center gap-2 uppercase">
                           CAST DATA
@@ -1154,9 +1170,9 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                   <section>
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">年齢・スタイル</h3>
                                       <div className="flex flex-wrap gap-2">
-                                          {castPreferences.age_min && <span className="px-3 py-1.5 text-[11px] tracking-widest border border-black bg-black text-white">{castPreferences.age_min}歳</span>}
-                                          {castPreferences.tall_min && <span className="px-3 py-1.5 text-[11px] tracking-widest border border-black text-black">{castPreferences.tall_min}cm</span>}
-                                          {castPreferences.cup_min && <span className="px-3 py-1.5 text-[11px] tracking-widest border border-black text-black">{castPreferences.cup_min}カップ</span>}
+                                          {castPreferences.age_min && <span className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{castPreferences.age_min}歳</span>}
+                                          {castPreferences.tall_min && <span className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{castPreferences.tall_min}cm</span>}
+                                          {castPreferences.cup_min && <span className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{castPreferences.cup_min}カップ</span>}
                                       </div>
                                   </section>
                               )}
@@ -1166,7 +1182,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">体型</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.body_types.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1177,7 +1193,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">個性・特徴</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.features.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1188,7 +1204,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">性格</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.personalities.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1199,7 +1215,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">S/M傾向</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.sm_types.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1210,7 +1226,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">可能プレイ</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.plays.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1221,7 +1237,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <h3 className="text-xs text-[#777777] tracking-widest mb-3 font-normal">OP枠</h3>
                                       <div className="flex flex-wrap gap-2">
                                           {castPreferences.op_options.map((item: string) => (
-                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest border border-[#E5E5E5] text-black bg-[#F9F9F9]">{item}</span>
+                                              <span key={item} className="px-3 py-1.5 text-[11px] tracking-widest rounded-md border-2 border-[#FFB3C6] text-[#FF5C8A] bg-white font-bold">{item}</span>
                                           ))}
                                       </div>
                                   </section>
@@ -1557,39 +1573,40 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
             {user?.id === id && !isPreview ? (
                 <div className="flex gap-2">
                     {!isNonCastProfile && (
-                    <button onClick={() => setShowPreferencesModal(true)} className="px-4 py-1.5 mb-2 border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest gap-0.5">
-                        <span className="text-[10px] font-medium leading-none tracking-[0.1em]">CAST</span>
-                        <span className="text-[8px] font-bold leading-none tracking-[0.1em]">DATA</span>
+                    <button onClick={() => setShowPreferencesModal(true)} className="px-5 h-[34px] mb-2 rounded-full border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest shrink-0">
+                        <span className="text-[10px] font-medium leading-[1.1] tracking-[0.1em]">CAST</span>
+                        <span className="text-[8px] font-bold leading-[1.1] tracking-[0.1em]">DATA</span>
                     </button>
                     )}
-                    <button onClick={() => router.push('/mypage/settings')} className="px-6 py-2 text-[11px] mb-2 font-medium tracking-widest transition-colors premium-btn-outline">
+                    <button onClick={() => router.push('/mypage/settings')} className="px-5 h-[34px] text-[11px] mb-2 rounded-full font-medium tracking-widest transition-colors border border-[#E5E5E5] text-black bg-[#F9F9F9] hover:bg-[#E5E5E5] flex items-center justify-center shrink-0">
                         設定・編集
                     </button>
                 </div>
             ) : user?.id === id && isPreview ? (
                 <div className="flex gap-2">
                     {!isNonCastProfile && (
-                    <button onClick={() => setShowPreferencesModal(true)} className="px-4 py-1.5 mb-2 border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest gap-0.5">
-                        <span className="text-[10px] font-medium leading-none tracking-[0.1em]">CAST</span>
-                        <span className="text-[8px] font-bold leading-none tracking-[0.1em]">DATA</span>
+                    <button onClick={() => setShowPreferencesModal(true)} className="px-5 h-[34px] mb-2 rounded-full border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest shrink-0">
+                        <span className="text-[10px] font-medium leading-[1.1] tracking-[0.1em]">CAST</span>
+                        <span className="text-[8px] font-bold leading-[1.1] tracking-[0.1em]">DATA</span>
                     </button>
                     )}
                 </div>
             ) : (
                 <div className="flex gap-2">
                     {!isNonCastProfile && (
-                    <button onClick={() => setShowPreferencesModal(true)} className="px-4 py-1.5 mb-2 border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest gap-0.5">
-                        <span className="text-[10px] font-medium leading-none tracking-[0.1em]">CAST</span>
-                        <span className="text-[8px] font-bold leading-none tracking-[0.1em]">DATA</span>
+                    <button onClick={() => setShowPreferencesModal(true)} className="px-5 h-[34px] mb-2 rounded-full border border-[#E5E5E5] text-black bg-white hover:bg-[#F9F9F9] transition-colors flex flex-col items-center justify-center tracking-widest shrink-0">
+                        <span className="text-[10px] font-medium leading-[1.1] tracking-[0.1em]">CAST</span>
+                        <span className="text-[8px] font-bold leading-[1.1] tracking-[0.1em]">DATA</span>
                     </button>
                     )}
                     <button 
                       onClick={handleFollow} 
-                      className={`px-6 py-2 text-[11px] mb-2 font-medium tracking-widest transition-colors ${
+                      className={`px-6 h-[34px] text-[11px] mb-2 rounded-full font-bold tracking-widest transition-colors flex items-center justify-center min-w-[100px] shrink-0 ${
                           isFollowing 
-                            ? 'border border-[#E5E5E5] text-black bg-[#F9F9F9] hover:bg-[#E5E5E5]' 
-                            : 'bg-black text-white border border-black hover:bg-black/80'
+                            ? 'premium-btn-outline' 
+                            : 'premium-btn'
                       }`}
+                      style={{ boxShadow: 'none' }}
                     >
                         {isFollowing ? 'フォロー中' : 'フォローする'}
                     </button>
@@ -1825,6 +1842,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                       {...post} 
                       isFollowing={isFollowing}
                       onFollowToggle={handleFollow}
+                      onLikeToggle={handlePostLikeToggle}
                   />
                 ))
             ) : (
@@ -2188,7 +2206,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         ) : activeTab === 'timeline' ? (
             posts.length > 0 ? (
                 posts.map(post => (
-                  <PostCard key={post.id} {...post} />
+                  <PostCard key={post.id} {...post} onLikeToggle={handlePostLikeToggle} />
                 ))
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-[#777777]">
@@ -2363,7 +2381,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Fixed Sticky CTA Bottom for Cast Profile */}
       {!(user?.id === id && isPreview) && (
-      <div className="fixed bottom-[72px] left-0 right-0 max-w-md mx-auto p-4 z-40 bg-white border-t border-[#E5E5E5]">
+      <div className="fixed bottom-[72px] left-0 right-0 max-w-md mx-auto px-4 pb-4 pt-2 z-40 pointer-events-none">
+          <div className="pointer-events-auto w-full">
           {user?.id === id ? (
             <button onClick={() => router.push('/mypage/settings')} className="premium-btn w-full flex items-center justify-center gap-3 py-4 text-sm tracking-widest">
                <UserPlus size={18} className="stroke-[1.5]" />
@@ -2380,6 +2399,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                このキャストを予約する
             </Link>
           ) : null}
+          </div>
       </div>
       )}
       
@@ -2442,23 +2462,15 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Selected Post Modal (Gallery) */}
       {selectedPost && (
-          <div className="fixed inset-0 z-[120] bg-white flex flex-col animate-in fade-in duration-200">
-             <div className="flex items-center justify-between p-4 border-b border-[#E5E5E5] bg-white sticky top-0 z-10">
-               <button onClick={() => setSelectedPost(null)} className="p-2 -ml-2 text-black hover:bg-[#F9F9F9] rounded-none transition-colors">
-                  <ArrowLeft size={20} className="stroke-[1.5]" />
-               </button>
-               <span className="text-[11px] font-bold tracking-widest uppercase">投稿詳細</span>
-               <div className="w-8"></div>
-             </div>
-             <div className="flex-1 overflow-y-auto pb-20 bg-[#F9F9F9]">
-                <PostCard 
-                   {...selectedPost} 
-                   showFollowButton={true}
-                   isFollowing={isFollowing}
-                   onFollowToggle={handleFollow}
-                />
-             </div>
-          </div>
+         <PostCard 
+            {...selectedPost} 
+            showFollowButton={true}
+            isFollowing={isFollowing}
+            onFollowToggle={handleFollow}
+            defaultFullscreen={true}
+            onFullscreenClose={() => setSelectedPost(null)}
+            onLikeToggle={handlePostLikeToggle}
+         />
       )}
 
       {/* Followers Modal */}
