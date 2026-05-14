@@ -40,6 +40,7 @@ interface PostProps {
   defaultFullscreen?: boolean;
   onFullscreenClose?: () => void;
   onLikeToggle?: (postId: string, newIsLiked: boolean, newCount: number) => void;
+  variant?: 'card' | 'timeline';
 }
 
 export default function PostCard({
@@ -72,7 +73,8 @@ export default function PostCard({
   isLiked = false,
   defaultFullscreen = false,
   onFullscreenClose,
-  onLikeToggle
+  onLikeToggle,
+  variant = 'card'
 }: PostProps) {
   const router = useRouter();
   const { user } = useUser();
@@ -353,7 +355,289 @@ export default function PostCard({
 
   return (
     <>
-      {!isDeletedLocally && (
+      {!isDeletedLocally && variant === 'timeline' ? (
+        <article className={`border-b border-[#E5E5E5] bg-white p-4 flex gap-3 relative hover:bg-[#FCFCFC] transition-colors ${defaultFullscreen ? 'hidden' : ''}`}>
+            {/* Left Column: Avatar */}
+            <div className="shrink-0 pt-0.5">
+                <Link href={`/cast/${castId}`} className="block w-10 h-10 rounded-full overflow-hidden border border-[#E5E5E5] hover:opacity-80 transition-opacity bg-[#F9F9F9]">
+                    <img src={castImage} alt={castName} className="object-cover w-full h-full" loading="lazy" />
+                </Link>
+            </div>
+
+            {/* Right Column: Content */}
+            <div className="flex-1 min-w-0 flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Link href={`/cast/${castId}`} className="text-[13px] font-bold tracking-widest text-black hover:underline decoration-black underline-offset-4 truncate shrink">
+                            {castName}
+                        </Link>
+                        {isNew && <span className="bg-[#22C55E] text-white text-[8px] font-bold px-1.5 py-0.5 tracking-widest rounded-sm shrink-0">NEW</span>}
+                        <span className="text-[11px] text-[#777777] shrink-0 font-normal">· {timeAgo}</span>
+                    </div>
+                    
+                    {/* More Menu */}
+                    <div className="shrink-0 flex items-center">
+                        {canManage && (
+                            <div className="relative">
+                                <button 
+                                onClick={(e) => { e.preventDefault(); setShowMenu(!showMenu); }}
+                                className="text-[#bbb] hover:text-[#111] transition-colors p-1"
+                                >
+                                <MoreVertical size={14} />
+                                </button>
+                                {showMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={(e) => { e.preventDefault(); setShowMenu(false); }} />
+                                    <div className="absolute right-0 bottom-full mb-1 w-44 bg-white border border-[#E5E5E5] shadow-lg rounded-xl z-50 py-1 overflow-hidden">
+                                        <button 
+                                        onClick={async (e) => { 
+                                            e.preventDefault(); 
+                                            setShowMenu(false); 
+                                            const newPinStatus = !localIsPinned;
+                                            setLocalIsPinned(newPinStatus);
+                                            const { error } = await supabase.rpc('toggle_post_pin', {
+                                                p_post_id: id,
+                                                p_user_id: user?.id,
+                                                p_new_status: newPinStatus
+                                            });
+                                            if (error) {
+                                                setLocalIsPinned(!newPinStatus);
+                                            } else if (onTogglePin) {
+                                                onTogglePin(id, newPinStatus);
+                                            }
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-xs tracking-widest flex items-center gap-3 hover:bg-[#F9F9F9] transition-colors text-black"
+                                        >
+                                        {localIsPinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                        {localIsPinned ? '固定を解除' : 'プロフィールに固定'}
+                                        </button>
+                                        <Link 
+                                        href={`/post?edit=${id}`}
+                                        className="w-full text-left px-4 py-3 text-xs tracking-widest flex items-center gap-3 hover:bg-[#F9F9F9] transition-colors text-black"
+                                        >
+                                        <Edit size={14} />
+                                        編集する
+                                        </Link>
+                                        <button 
+                                        onClick={async (e) => { 
+                                            e.preventDefault(); 
+                                            setShowMenu(false); 
+                                            if (confirm('本当に削除しますか？')) { 
+                                                setIsDeletedLocally(true);
+                                                if (onDelete) onDelete(id); 
+                                            } 
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-xs tracking-widest flex items-center gap-3 hover:bg-[#F9F9F9] transition-colors text-[#E02424]"
+                                        >
+                                        <Trash2 size={14} />
+                                        削除する
+                                        </button>
+                                    </div>
+                                </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Status/Badges */}
+                {(isWorkingToday || displayTime) && (
+                    <div className="flex flex-wrap gap-1 mb-2.5 mt-0.5">
+                        {isWorkingToday && (
+                            <span className={`text-[9px] font-bold tracking-widest px-1.5 py-0.5 text-white rounded-sm shadow-sm ${statusText === 'ご予約完売' ? 'bg-[#333333]' : statusText === '受付終了' ? 'bg-[#777777]' : 'bg-[#E02424] animate-pulse'}`}>
+                                {statusText || "本日出勤中"}
+                            </span>
+                        )}
+                        {displayTime && (
+                            <span className="text-[9px] text-[#555] bg-[#F5F5F5] rounded-sm border border-[#E5E5E5] px-1.5 py-0.5 flex items-center gap-1">
+                                <Clock size={10} className="stroke-[2]" />
+                                {displayTime}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {/* Content Text */}
+                <p className="text-[13px] text-[#222222] leading-relaxed whitespace-pre-wrap break-words mb-2.5">
+                    {content}
+                </p>
+
+                {/* Media */}
+                {images.length > 0 && (
+                    <div className={`relative mb-3 rounded-xl overflow-hidden border border-[#E5E5E5] bg-[#F5F5F5] ${shouldBlur ? 'cursor-pointer' : ''}`}
+                            onClick={() => {
+                                if (user?.settings?.image_blur_enabled && !isImagesRevealed && !localIsLocked) {
+                                    setIsImagesRevealed(true);
+                                    return;
+                                }
+                                setActiveSlide(0);
+                                setFullscreenIndex(0);
+                            }}
+                    >
+                        {images[0].match(/\.(mp4|mov|webm)$/i) ? (
+                            <>
+                                <video src={images[0]} className={`w-full max-h-[60vh] object-cover transition-all duration-700 pointer-events-none ${shouldBlur ? 'blur-xl scale-110' : ''}`} autoPlay loop muted playsInline />
+                                {!shouldBlur && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                                        <div className="bg-black/40 rounded-full p-3 backdrop-blur-sm shadow-md">
+                                            <Play size={24} className="text-white fill-white ml-1" />
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <img src={images[0]} className={`w-full max-h-[60vh] object-cover transition-all duration-700 ${shouldBlur ? 'blur-xl scale-110' : ''}`} loading="lazy" alt="Media content" />
+                        )}
+                        
+                        {!shouldBlur && <MediaWatermark />}
+
+                        {!shouldBlur && images.length > 1 && (
+                            <div className="absolute top-2 right-2 z-20 pointer-events-none bg-black/60 backdrop-blur-sm px-1.5 py-1 rounded shadow-sm text-white flex items-center gap-0.5">
+                                <Layers size={10} />
+                                <span className="text-[9px] font-bold tracking-tight">1/{images.length}</span>
+                            </div>
+                        )}
+                        
+                        {shouldBlur && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                {localIsLocked ? (
+                                    <div className="flex items-center justify-center bg-black/80 p-3 text-white shadow-lg rounded-full">
+                                        <Lock size={16} />
+                                    </div>
+                                ) : (
+                                    <div className="bg-black/60 text-white text-[10px] tracking-widest px-4 py-2 font-medium rounded-full">
+                                        タップして表示
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Quoted Review Card */}
+                {quotedReview && (
+                    <div className="mb-3 border border-[#E5E5E5] bg-white p-3 rounded-xl shadow-sm relative hover:bg-[#F9F9F9] transition-colors">
+                        <Link href={`/cast/${castId}?tab=reviews`} className="absolute inset-0 z-0" />
+                        <div className="relative z-10 pointer-events-none">
+                            <div className="flex items-center gap-2 mb-2">
+                                    <Link href={`/cast/${quotedReview.reviewer_id}`} className="w-6 h-6 border border-[#E5E5E5] bg-white rounded-full overflow-hidden hover:opacity-80 transition-opacity pointer-events-auto shrink-0">
+                                        <img 
+                                        src={quotedReview.sns_profiles?.avatar_url || "/images/no-photo.jpg"} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover" 
+                                        />
+                                    </Link>
+                                    <div className="pointer-events-auto min-w-0 flex-1">
+                                        <Link href={`/cast/${quotedReview.reviewer_id}`} className="text-[10px] font-bold tracking-widest flex items-center gap-1 hover:underline decoration-black underline-offset-4 truncate">
+                                        <span className="truncate">{quotedReview.sns_profiles?.name || "匿名ユーザー"}</span>
+                                        {quotedReview.sns_profiles?.is_vip && (
+                                            <img src="/images/vip-crown.png" alt="VIP" className="h-3 object-contain ml-0.5 shrink-0" />
+                                        )}
+                                        </Link>
+                                        <p className="text-[9px] text-[#777777] tracking-widest">訪問日: {quotedReview.visited_date}</p>
+                                    </div>
+                            </div>
+                            <div className="flex items-center gap-1 mb-1.5">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                        <Star key={s} size={10} className={s <= quotedReview.rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'fill-transparent text-[#E5E5E5]'} />
+                                    ))}
+                                    <span className="text-[10px] font-bold ml-1 text-[#D4AF37]">{quotedReview.score}点</span>
+                            </div>
+                            <p className="text-[11px] text-[#333333] leading-relaxed line-clamp-3">
+                                {quotedReview.content}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Tagged Cast Card */}
+                {taggedCast && (
+                    <div className="mb-3 border border-[#E5E5E5] bg-white p-2.5 rounded-xl shadow-sm flex flex-col gap-2 relative hover:bg-[#F9F9F9] transition-colors">
+                            <Link href={`/cast/${taggedCast.id}`} className="absolute inset-0 z-0" />
+                            <div className="relative z-10 pointer-events-none flex items-start gap-3 w-full">
+                                <Link href={`/cast/${taggedCast.id}`} className="w-8 h-8 border border-black bg-white rounded-full overflow-hidden hover:opacity-80 transition-opacity shrink-0 pointer-events-auto">
+                                    <img 
+                                    src={taggedCast.avatar_url || "/images/no-photo.jpg"} 
+                                    alt="Profile" 
+                                    className="w-full h-full object-cover" 
+                                    />
+                                </Link>
+                                <div className="flex-1 min-w-0 pointer-events-auto">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <Link href={`/cast/${taggedCast.id}`} className="text-[11px] font-bold tracking-widest flex items-center gap-1 hover:underline decoration-black underline-offset-4 truncate">
+                                        <span className="truncate">{taggedCast.name}</span>
+                                        {taggedCast.is_vip && (
+                                            <img src="/images/vip-crown.png" alt="VIP" className="h-3 object-contain shrink-0" />
+                                        )}
+                                        </Link>
+                                        {taggedCastScore ? (
+                                            <div className="flex items-center gap-0.5 shrink-0 pointer-events-none">
+                                                <Star size={10} className="fill-[#D4AF37] text-[#D4AF37]" />
+                                                <span className="text-[9px] font-bold tracking-widest text-[#D4AF37]">{taggedCastScore}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="text-[8px] text-[#777777] tracking-widest shrink-0 pointer-events-none">口コミなし</div>
+                                        )}
+                                    </div>
+                                    {taggedCast.bio && (
+                                        <p className="text-[10px] text-[#555] line-clamp-2 leading-relaxed pointer-events-none">
+                                            {taggedCast.bio}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                    </div>
+                )}
+
+                {/* Reservation Action Button */}
+                {isWorkingToday && statusText !== '受付終了' && statusText !== 'ご予約完売' && (
+                    <div className="mb-3">
+                        <Link 
+                            href={`/reserve/${castId}`} 
+                            onClick={(e) => {
+                                if (!user) {
+                                    e.preventDefault();
+                                    if (typeof window !== 'undefined') {
+                                        sessionStorage.setItem('authRedirect', `/reserve/${castId}`);
+                                    }
+                                    setShowAuthModal(true);
+                                }
+                            }}
+                            className="w-full flex items-center justify-center py-2 rounded-full border border-[#E5E5E5] bg-white hover:bg-[#F9F9F9] transition-colors text-[11px] font-bold tracking-widest shadow-sm text-black group"
+                        >
+                            <CalendarCheck size={14} className="mr-1.5 stroke-[2] group-hover:text-[#FF5C8A] transition-colors" />
+                            今すぐ予約する
+                        </Link>
+                    </div>
+                )}
+
+                {/* Action Bar */}
+                <div className="flex items-center justify-between text-[#777777] mt-0.5 max-w-sm">
+                    <button 
+                        onClick={handleLike}
+                        className={`flex items-center gap-1 transition-colors group ${localIsLiked ? 'text-[#FF3B30]' : 'hover:text-[#FF3B30]'}`}
+                    >
+                        <div className={`p-1.5 rounded-full group-hover:bg-[#FF3B30]/10 transition-colors ${localIsLiked ? '' : ''}`}>
+                            <Heart size={16} className={localIsLiked ? 'fill-[#FF3B30]' : 'stroke-[1.5]'} />
+                        </div>
+                        <span className="text-[11px] font-medium">{localLikesCount > 0 ? localLikesCount : ''}</span>
+                    </button>
+                    <button className="flex items-center gap-1 hover:text-[#34C759] transition-colors group">
+                        <div className="p-1.5 rounded-full group-hover:bg-[#34C759]/10 transition-colors">
+                            <Repeat2 size={16} className="stroke-[1.5]" />
+                        </div>
+                    </button>
+                    <button onClick={handleShare} className="flex items-center gap-1 hover:text-[#007AFF] transition-colors group">
+                        <div className="p-1.5 rounded-full group-hover:bg-[#007AFF]/10 transition-colors">
+                            <Share size={16} className="stroke-[1.5]" />
+                        </div>
+                    </button>
+                </div>
+
+            </div>
+        </article>
+      ) : !isDeletedLocally && (
         <article className={`break-inside-avoid mb-3 border border-[#E5E5E5] rounded-xl bg-white shadow-sm overflow-hidden flex flex-col relative ${defaultFullscreen ? 'hidden' : ''}`}>
             
             {/* 1. Media (Top, edge-to-edge) */}

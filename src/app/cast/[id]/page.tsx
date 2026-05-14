@@ -50,6 +50,19 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
+  const handleTabChange = (tab: any) => {
+    setActiveTab(tab);
+    setTimeout(() => {
+      const anchor = document.getElementById('tab-anchor');
+      if (anchor) {
+          const rect = anchor.getBoundingClientRect();
+          if (rect.top < 0) {
+              window.scrollTo({ top: window.scrollY + rect.top, behavior: 'instant' });
+          }
+      }
+    }, 0);
+  };
+
   const handleReserveClick = (e: React.MouseEvent) => {
     if (!user) {
       e.preventDefault();
@@ -58,6 +71,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
   };  
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersList, setFollowersList] = useState<any[]>([]);
+  const [hiddenFollowersCount, setHiddenFollowersCount] = useState(0);
   const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
   const [likedFollowerIds, setLikedFollowerIds] = useState<Set<string>>(new Set());
 
@@ -560,7 +574,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
           const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
           const storeId = storeCast?.store_id || 'ef92279f-3f19-47e7-b542-69de5906ab9b';
 
-          const next14DaysPromises = Array.from({length: 14}, async (_, i) => {
+          const nextDaysPromises = Array.from({length: 28}, async (_, i) => {
               const d = new Date();
               d.setDate(d.getDate() + i);
               const dateStr = d.toLocaleDateString('sv-SE').split('T')[0]; 
@@ -584,8 +598,8 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
               }
           });
           
-          const next14Days = await Promise.all(next14DaysPromises);
-          setWeeklyShifts(next14Days);
+          const nextDays = await Promise.all(nextDaysPromises);
+          setWeeklyShifts(nextDays);
 
           if (storeCast?.id) {
               const now = new Date();
@@ -704,13 +718,13 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                           }
                       }
                   } else {
-                      const nextValid = next14Days.find(d => d.text !== "お休み");
+                      const nextValid = nextDays.find(d => d.text !== "お休み");
                       if (nextValid) {
                           nextAvailableTime = `次回出勤: ${nextValid.displayDate.split('(')[0]}`;
                       }
                   }
               } else {
-                  const nextValid = next14Days.find(d => d.text !== "お休み");
+                  const nextValid = nextDays.find(d => d.text !== "お休み");
                   if (nextValid) {
                       nextAvailableTime = `次回出勤: ${nextValid.displayDate.split('(')[0]}`;
                   }
@@ -724,7 +738,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                   statusText: statusText
               }));
           } else {
-              const nextValid = next14Days.find(d => d.text !== "お休み");
+              const nextValid = nextDays.find(d => d.text !== "お休み");
               let nextAvailableTime = null;
               if (nextValid) {
                   nextAvailableTime = `次回出勤: ${nextValid.displayDate.split('(')[0]}`;
@@ -1033,27 +1047,31 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
          const isOwnProfile = user?.id === id || user?.id === resolvedCastId;
          const isManagement = ['store', 'admin', 'management', 'system'].includes(user?.role || '');
          
+         let hiddenCount = 0;
+         
          // 第三者が見る場合、推しキャスト非公開のユーザーを除外する
          if (!isOwnProfile && !isManagement) {
              const followerIds = data.map(f => f.follower_id);
              if (followerIds.length > 0) {
                  const { data: prefsData } = await supabase
                      .from('sns_user_preferences')
-                     .select('user_id, following_casts')
+                     .select('user_id, op_options')
                      .in('user_id', followerIds);
                      
                  if (prefsData) {
                      const hiddenUserIds = new Set(
                          prefsData
-                             .filter(p => p.following_casts?.includes('HIDE_FOLLOWING_CASTS'))
+                             .filter(p => p.op_options?.includes('HIDE_FOLLOWING_CASTS'))
                              .map(p => p.user_id)
                      );
                      
                      visibleFollowers = data.filter(f => !hiddenUserIds.has(f.follower_id));
+                     hiddenCount = data.length - visibleFollowers.length;
                  }
              }
          }
          
+         setHiddenFollowersCount(hiddenCount);
          setFollowersList(visibleFollowers);
      }
      setIsLoadingFollowers(false);
@@ -1119,12 +1137,14 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       {/* DM Disabled Modal Overlay */}
       {showDMDisabledModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col items-center">
-            <div className="w-12 h-12 border border-black flex items-center justify-center mb-4 text-black">
-              <AlertTriangle size={20} className="stroke-[1.5]" />
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center mb-6 relative w-full">
+              <div className="flex items-center justify-center mb-2 text-black">
+                <AlertTriangle size={24} className="stroke-[1.5]" />
+              </div>
+              <h3 className="text-lg font-bold tracking-widest">ご利用いただけません</h3>
             </div>
-            <h3 className="text-sm font-bold tracking-widest mb-4">ご利用いただけません</h3>
-            <div className="text-xs text-[#333333] leading-relaxed mb-8 bg-[#F9F9F9] p-4 text-center text-left">
+            <div className="text-[11px] text-[#555555] leading-relaxed mb-8 bg-yellow-50 p-4 rounded-xl text-justify w-full">
               {profileData.role === 'system' ? (
                 <>
                   運営へのご意見やご要望につきましては、メニュータブ内の「ご意見」フォームよりお寄せいただけますと幸いです。<br />
@@ -1134,10 +1154,10 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                 "このキャストは現在DM機能が有効ではありません。"
               )}
             </div>
-            <div className="w-full flex">
+            <div className="w-full flex mt-2">
               <button 
                 onClick={() => setShowDMDisabledModal(false)}
-                className="w-full py-3 bg-black text-white text-xs tracking-widest transition-colors"
+                className="w-full py-3.5 rounded-full bg-[#FF5C8A] text-white text-xs font-bold tracking-widest transition-colors shadow-md hover:bg-[#FF5C8A]/90"
               >
                 閉じる
               </button>
@@ -1293,20 +1313,27 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       {/* Follow Prompt Modal Before DM */}
       {showFollowPromptModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col shadow-sm">
-             <div className="flex items-center gap-3 border-b border-black pb-4 mb-6">
-                <MessageCircle size={20} className="stroke-[1.5]" />
-                <h3 className="text-sm font-bold tracking-widest uppercase text-black">DM送信前の確認</h3>
+           <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center">
+             <div className="flex flex-col items-center justify-center mb-6 relative w-full">
+                <div className="flex items-center justify-center mb-2 text-black">
+                  <MessageCircle size={24} className="stroke-[1.5]" />
+                </div>
+                <h3 className="text-lg font-bold tracking-widest text-black">DM送信前の確認</h3>
              </div>
              
-             <div className="text-xs text-[#333333] tracking-widest leading-relaxed mb-8 flex flex-col gap-4">
+              <div className="text-[11px] text-[#555555] leading-relaxed mb-6 bg-yellow-50 p-4 rounded-xl text-justify w-full flex flex-col gap-4">
                 <p>
-                  メッセージを送るには、まずこの{isCustomerProfile ? 'ユーザー' : 'キャスト'}を <strong>フォロー</strong> する必要があります。
+                  メッセージを送るには、まずこの{isCustomerProfile ? 'ユーザー' : profileData.role === 'store' ? '店舗' : profileData.role === 'system' ? '公式アカウント' : 'キャスト'}を <strong>フォロー</strong> する必要があります。
                 </p>
                 <p>
                   {isCustomerProfile ? (
                      <>
                         フォローすることで、お互いに円滑なコミュニケーションを取りやすくなります。<br/>
+                        さっそくフォローしてメッセージ画面に進みますか？
+                     </>
+                  ) : profileData.role === 'store' || profileData.role === 'system' ? (
+                     <>
+                        メッセージを送信するには、まずアカウントのフォローが必要です。<br/>
                         さっそくフォローしてメッセージ画面に進みますか？
                      </>
                   ) : (
@@ -1318,10 +1345,10 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                 </p>
              </div>
              
-             <div className="flex gap-4">
+             <div className="w-full flex gap-3 mt-2">
                  <button 
                    onClick={() => setShowFollowPromptModal(false)}
-                   className="flex-1 py-3 text-[11px] tracking-widest border border-[#E5E5E5] text-[#777777] font-medium hover:bg-[#F9F9F9] transition-colors"
+                   className="flex-1 py-3.5 rounded-full border border-[#E5E5E5] text-xs font-bold tracking-widest text-[#777777] hover:bg-[#F9F9F9] transition-colors"
                  >
                    キャンセル
                  </button>
@@ -1340,7 +1367,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                        }
                        setShowDMWarning(true);
                    }}
-                   className="flex-1 py-3 text-[11px] tracking-widest font-medium bg-black text-white hover:bg-black/80 transition-colors flex items-center justify-center gap-2"
+                   className="flex-1 py-3.5 rounded-full bg-[#FF5C8A] text-white text-xs font-bold tracking-widest hover:bg-[#FF5C8A]/90 transition-colors shadow-sm"
                  >
                    フォローして進む
                  </button>
@@ -1352,12 +1379,14 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       {/* DM Warning Modal Overlay */}
       {showDMWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col items-center">
-            <div className="w-12 h-12 border border-black flex items-center justify-center mb-4 text-black">
-              <AlertTriangle size={20} className="stroke-[1.5]" />
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center mb-6 relative w-full">
+              <div className="flex items-center justify-center mb-2 text-black">
+                <AlertTriangle size={24} className="stroke-[1.5]" />
+              </div>
+              <h3 className="text-lg font-bold tracking-widest">注意事項</h3>
             </div>
-            <h3 className="text-sm font-bold tracking-widest mb-4">注意事項</h3>
-            <div className="text-xs text-[#333333] leading-relaxed mb-6 bg-[#F9F9F9] p-4 text-justify">
+            <div className="text-[11px] text-[#555555] leading-relaxed mb-6 bg-yellow-50 p-4 rounded-xl text-justify w-full">
               {profileData.role === 'store' ? (
                 <>
                   お問い合わせいただきありがとうございます。<br />
@@ -1369,7 +1398,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                 </>
               ) : isCustomerProfile ? (
                 <>
-                  <span className="font-bold">【DM機能に関するお願い】</span><br />
+                  <span className="font-bold text-black">【DM機能に関するお願い】</span><br />
                   いつもご利用いただきありがとうございます。<br />
                   皆様に安心してご利用いただくため、DMご利用の際は以下の点にご配慮をお願いいたします。<br />
                   <br />
@@ -1385,38 +1414,40 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
             </div>
             
             <div className="w-full space-y-4 mb-8 text-left">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="mt-0.5">
-                  {agreedToTerms ? <CheckSquare size={16} className="text-black" /> : <Square size={16} className="text-[#777777]" />}
+              <label className={`flex items-center justify-between border ${agreedToTerms ? 'border-green-500 bg-green-50/30' : 'border-[#E5E5E5] hover:border-black/30'} p-3 rounded-xl cursor-pointer transition-colors group`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${agreedToTerms ? 'bg-green-500 border-green-500 text-white' : 'border-[#CCCCCC] bg-white group-hover:border-[#999999]'}`}>
+                    {agreedToTerms && <Check size={12} strokeWidth={3} />}
+                  </div>
+                  <span className={`text-[11px] font-bold tracking-widest transition-colors ${agreedToTerms ? 'text-black' : 'text-[#555555]'}`}>
+                    上記の内容に同意する
+                  </span>
                 </div>
-                <span className={`text-xs tracking-widest transition-colors block ${agreedToTerms ? 'text-black font-bold' : 'text-[#777777]'}`}>
-                  上記の内容に同意する
-                </span>
                 <input type="checkbox" className="hidden" checked={agreedToTerms} onChange={() => setAgreedToTerms(!agreedToTerms)} />
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div>
-                  {doNotShowAgain ? <CheckSquare size={16} className="text-black" /> : <Square size={16} className="text-[#777777]" />}
+              <label className="flex items-center gap-3 cursor-pointer group px-1">
+                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${doNotShowAgain ? 'bg-green-500 border-green-500 text-white' : 'border-[#CCCCCC] bg-white group-hover:border-[#999999]'}`}>
+                  {doNotShowAgain && <Check size={10} strokeWidth={3} />}
                 </div>
-                <span className={`text-[10px] tracking-widest transition-colors ${doNotShowAgain ? 'text-black' : 'text-[#777777]'}`}>
+                <span className={`text-[10px] font-bold tracking-widest transition-colors ${doNotShowAgain ? 'text-black' : 'text-[#777777]'}`}>
                   今後は表示しない
                 </span>
                 <input type="checkbox" className="hidden" checked={doNotShowAgain} onChange={() => setDoNotShowAgain(!doNotShowAgain)} />
               </label>
             </div>
 
-            <div className="w-full flex gap-3">
+            <div className="w-full flex gap-3 mt-2">
               <button 
                 onClick={() => setShowDMWarning(false)}
-                className="flex-1 py-3 border border-[#E5E5E5] text-xs tracking-widest text-[#777777] hover:bg-[#F9F9F9] transition-colors"
+                className="flex-1 py-3.5 rounded-full border border-[#E5E5E5] text-xs font-bold tracking-widest text-[#777777] hover:bg-[#F9F9F9] transition-colors"
               >
                 キャンセル
               </button>
               <button 
                 onClick={handleProceedToMessage}
                 disabled={!agreedToTerms}
-                className="flex-1 py-3 bg-black text-white text-xs tracking-widest disabled:bg-[#E5E5E5] disabled:text-[#777777] transition-colors"
+                className="flex-1 py-3.5 rounded-full bg-[#FF5C8A] hover:bg-[#FF5C8A]/90 text-white text-xs font-bold tracking-widest disabled:bg-[#E5E5E5] disabled:text-[#999999] shadow-md disabled:shadow-none transition-colors"
               >
                 進む
               </button>
@@ -1428,13 +1459,15 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
       {/* Review Warning Modal Overlay */}
       {showReviewWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm p-6 border border-[#E5E5E5] flex flex-col items-center">
-            <div className="w-12 h-12 border border-black flex items-center justify-center mb-4 text-black">
-              <AlertTriangle size={20} className="stroke-[1.5]" />
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center mb-6 relative w-full">
+              <div className="flex items-center justify-center mb-2 text-black">
+                <AlertTriangle size={24} className="stroke-[1.5]" />
+              </div>
+              <h3 className="text-lg font-bold tracking-widest">注意事項</h3>
             </div>
-            <h3 className="text-sm font-bold tracking-widest mb-4">注意事項</h3>
-            <div className="text-xs text-[#333333] leading-relaxed mb-6 bg-[#F9F9F9] p-4 text-justify">
-              <span className="font-bold block mb-2">【口コミ投稿に関するお願い】</span>
+            <div className="text-[11px] text-[#555555] leading-relaxed mb-6 bg-yellow-50 p-4 rounded-xl text-justify w-full">
+              <span className="font-bold text-black block mb-2">【口コミ投稿に関するお願い】</span>
               いつもご利用いただきありがとうございます。<br />
               皆様に安心してご利用いただくため、投稿の際は以下の点にご配慮をお願いいたします。<br /><br />
               ・特定の個人を識別できる情報の掲載や、過度な批判、誹謗中傷にあたる表現はお控えください。<br />
@@ -1443,31 +1476,33 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
             </div>
             
             <div className="w-full space-y-4 mb-8 text-left">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="mt-0.5">
-                  {agreedToReviewTerms ? <CheckSquare size={16} className="text-black" /> : <Square size={16} className="text-[#777777]" />}
+              <label className={`flex items-center justify-between border ${agreedToReviewTerms ? 'border-green-500 bg-green-50/30' : 'border-[#E5E5E5] hover:border-black/30'} p-3 rounded-xl cursor-pointer transition-colors group`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${agreedToReviewTerms ? 'bg-green-500 border-green-500 text-white' : 'border-[#CCCCCC] bg-white group-hover:border-[#999999]'}`}>
+                    {agreedToReviewTerms && <Check size={12} strokeWidth={3} />}
+                  </div>
+                  <span className={`text-[11px] font-bold tracking-widest transition-colors ${agreedToReviewTerms ? 'text-black' : 'text-[#555555]'}`}>
+                    上記の内容に同意する
+                  </span>
                 </div>
-                <span className={`text-xs tracking-widest transition-colors block ${agreedToReviewTerms ? 'text-black font-bold' : 'text-[#777777]'}`}>
-                  上記の内容に同意する
-                </span>
                 <input type="checkbox" className="hidden" checked={agreedToReviewTerms} onChange={() => setAgreedToReviewTerms(!agreedToReviewTerms)} />
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div>
-                  {doNotShowReviewWarningAgain ? <CheckSquare size={16} className="text-black" /> : <Square size={16} className="text-[#777777]" />}
+              <label className="flex items-center gap-3 cursor-pointer group px-1">
+                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${doNotShowReviewWarningAgain ? 'bg-green-500 border-green-500 text-white' : 'border-[#CCCCCC] bg-white group-hover:border-[#999999]'}`}>
+                  {doNotShowReviewWarningAgain && <Check size={10} strokeWidth={3} />}
                 </div>
-                <span className={`text-[10px] tracking-widest transition-colors ${doNotShowReviewWarningAgain ? 'text-black' : 'text-[#777777]'}`}>
+                <span className={`text-[10px] font-bold tracking-widest transition-colors ${doNotShowReviewWarningAgain ? 'text-black' : 'text-[#777777]'}`}>
                   今後は表示しない
                 </span>
                 <input type="checkbox" className="hidden" checked={doNotShowReviewWarningAgain} onChange={() => setDoNotShowReviewWarningAgain(!doNotShowReviewWarningAgain)} />
               </label>
             </div>
 
-            <div className="w-full flex gap-3">
+            <div className="w-full flex gap-3 mt-2">
               <button 
                 onClick={() => setShowReviewWarning(false)}
-                className="flex-1 py-3 border border-[#E5E5E5] text-xs tracking-widest text-[#777777] hover:bg-[#F9F9F9] transition-colors"
+                className="flex-1 py-3.5 rounded-full border border-[#E5E5E5] text-xs font-bold tracking-widest text-[#777777] hover:bg-[#F9F9F9] transition-colors"
               >
                 キャンセル
               </button>
@@ -1481,7 +1516,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                   setShowReviewModal(true);
                 }}
                 disabled={!agreedToReviewTerms}
-                className="flex-1 py-3 bg-black text-white text-xs tracking-widest disabled:bg-[#E5E5E5] disabled:text-[#777777] transition-colors"
+                className="flex-1 py-3.5 rounded-full bg-[#FF5C8A] hover:bg-[#FF5C8A]/90 text-white text-xs font-bold tracking-widest disabled:bg-[#E5E5E5] disabled:text-[#999999] shadow-md disabled:shadow-none transition-colors"
               >
                 進む
               </button>
@@ -1754,18 +1789,20 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       </div>
 
+      {/* Anchor for tabs */}
+      <div id="tab-anchor" className="invisible h-0" />
       {/* Tabs for Casts/Stores */}
       {!isCustomerProfile && (
-      <div className="flex w-full sticky top-0 bg-white/90 backdrop-blur z-30">
+      <div className="flex w-full sticky -top-px bg-white border-b border-[#E5E5E5] z-30">
           <button 
-             onClick={() => setActiveTab('timeline')}
+             onClick={() => handleTabChange('timeline')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'timeline' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             タイムライン
             {activeTab === 'timeline' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
           </button>
           <button 
-             onClick={() => setActiveTab('gallery')}
+             onClick={() => handleTabChange('gallery')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'gallery' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             ギャラリー
@@ -1773,7 +1810,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
           </button>
           {profileData.role === 'store' && (
           <button 
-             onClick={() => setActiveTab('casts')}
+             onClick={() => handleTabChange('casts')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'casts' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             出勤情報
@@ -1782,7 +1819,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
           )}
           {profileData.role === 'store' && (
           <button 
-             onClick={() => setActiveTab('cast_grid')}
+             onClick={() => handleTabChange('cast_grid')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'cast_grid' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             キャスト一覧
@@ -1791,7 +1828,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
           )}
           {!isNonCastProfile && (
           <button 
-             onClick={() => setActiveTab('reviews')}
+             onClick={() => handleTabChange('reviews')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'reviews' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             口コミ
@@ -1800,7 +1837,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
           )}
           {!isNonCastProfile && (
           <button 
-             onClick={() => setActiveTab('shifts')}
+             onClick={() => handleTabChange('shifts')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'shifts' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             出勤情報
@@ -1812,23 +1849,23 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Tabs for Customers */}
       {isCustomerProfile && (
-      <div className="flex w-full sticky top-0 bg-white/90 backdrop-blur z-30">
+      <div className="flex w-full sticky -top-px bg-white border-b border-[#E5E5E5] z-30">
           <button 
-             onClick={() => setActiveTab('timeline')}
+             onClick={() => handleTabChange('timeline')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'timeline' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             タイムライン
             {activeTab === 'timeline' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
           </button>
           <button 
-             onClick={() => setActiveTab('posted_reviews')}
+             onClick={() => handleTabChange('posted_reviews')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'posted_reviews' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             投稿した口コミ
             {activeTab === 'posted_reviews' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-[3px] rounded-t-full bg-[#FF5C8A]"></div>}
           </button>
           <button 
-             onClick={() => setActiveTab('following_casts')}
+             onClick={() => handleTabChange('following_casts')}
              className={`flex-1 py-4 text-[11px] tracking-widest relative transition-colors ${activeTab === 'following_casts' ? 'font-bold text-[#FF5C8A]' : 'font-normal text-[#777777] hover:text-black'}`}
           >
             推しキャスト
@@ -1839,7 +1876,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Tab Content for Casts/Stores */}
       {!isCustomerProfile && (
-      <div className="pb-12 bg-[#F9F9F9] min-h-[300px]">
+      <div className={`pb-12 min-h-screen ${activeTab === 'timeline' ? 'bg-white' : 'bg-[#F9F9F9]'}`}>
         {isTabLoading ? (
             <div className="flex flex-col items-center justify-center py-32">
                 <div className="w-8 h-8 border-[3px] border-[#E5E5E5] border-t-black rounded-full animate-spin"></div>
@@ -1853,6 +1890,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                       isFollowing={isFollowing}
                       onFollowToggle={handleFollow}
                       onLikeToggle={handlePostLikeToggle}
+                      variant="timeline"
                   />
                 ))
             ) : (
@@ -2032,7 +2070,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                                       <Lock size={24} className="mb-2 text-[#D4AF37]" />
                                       <p className="text-xs font-bold tracking-widest text-black mb-1">VIP限定のプレミアム口コミ</p>
                                       <p className="text-[10px] text-[#333333] mb-4">内容を見るにはVIP会員への登録が必要です</p>
-                                      <Link href="/vip" className="px-6 py-2 bg-[#D4AF37] text-white text-[10px] tracking-widest hover:bg-[#B5952F] transition-colors">
+                                      <Link href="/vip" className="px-8 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#B5952F] text-white font-bold text-[10px] tracking-widest hover:opacity-90 transition-opacity rounded-full shadow-sm">
                                         VIP会員になる
                                       </Link>
                                    </div>
@@ -2160,36 +2198,51 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                     </h3>
                     <div className="flex items-center gap-4 text-[10px] tracking-widest font-bold">
                        <button 
-                          onClick={() => setWeekOffset(0)} 
+                          onClick={() => setWeekOffset(prev => prev - 1)} 
                           disabled={weekOffset === 0}
                           className={`flex items-center gap-1 ${weekOffset === 0 ? 'text-[#E5E5E5]' : 'text-black hover:text-[#777777]'} transition-colors`}
                        >
                          <ChevronLeft size={16} className="stroke-[1.5]" /> 前の週
                        </button>
                        <button 
-                          onClick={() => setWeekOffset(1)} 
-                          disabled={weekOffset === 1}
-                          className={`flex items-center gap-1 ${weekOffset === 1 ? 'text-[#E5E5E5]' : 'text-black hover:text-[#777777]'} transition-colors`}
+                          onClick={() => setWeekOffset(prev => prev + 1)} 
+                          disabled={weekOffset >= Math.floor((weeklyShifts.length - 1) / 7)}
+                          className={`flex items-center gap-1 ${weekOffset >= Math.floor((weeklyShifts.length - 1) / 7) ? 'text-[#E5E5E5]' : 'text-black hover:text-[#777777]'} transition-colors`}
                        >
                          次の週 <ChevronRight size={16} className="stroke-[1.5]" />
                        </button>
                     </div>
                 </div>
-                <div className="border border-black flex flex-col w-full text-xs">
+                <div className="border border-[#E5E5E5] rounded-[16px] overflow-hidden flex flex-col w-full text-xs shadow-sm">
                     {weeklyShifts.slice(weekOffset * 7, weekOffset * 7 + 7).map((shift, idx) => {
                         const isOff = shift.text === "お休み";
                         const isToday = weekOffset === 0 && idx === 0;
+                        const isSaturday = shift.displayDate.includes('(土)');
+                        const isSundayOrHoliday = shift.displayDate.includes('(日)') || shift.displayDate.includes('(祝)');
+                        
+                        let dateTextColor = 'text-[#555555]';
+                        if (isToday) {
+                            dateTextColor = 'text-[#FF5C8A] font-bold';
+                        } else if (isSaturday) {
+                            dateTextColor = 'text-[#4A90E2] font-medium';
+                        } else if (isSundayOrHoliday) {
+                            dateTextColor = 'text-[#FF3B30] font-medium';
+                        }
+
                         return (
-                            <div key={idx} className={`flex items-center w-full min-h-[44px] border-b border-[#E5E5E5] last:border-0 ${isOff ? 'bg-[#F9F9F9]' : 'bg-white'}`}>
-                                <div className="w-1/3 shrink-0 h-full flex items-center justify-center border-r border-[#E5E5E5] font-medium tracking-widest py-3">
-                                    <span className={isToday ? 'text-[#E02424]' : 'text-black'}>{shift.displayDate}</span>
+                            <div key={idx} className={`flex items-center w-full min-h-[48px] border-b border-[#E5E5E5] last:border-0 transition-colors ${isOff ? 'bg-[#F9F9F9]' : 'bg-white hover:bg-[#F9F9F9]'}`}>
+                                <div className="w-1/3 shrink-0 h-full flex items-center justify-center border-r border-[#E5E5E5] tracking-widest py-3 transition-colors bg-transparent">
+                                    <span className={dateTextColor}>{shift.displayDate}</span>
                                 </div>
-                                <div className="w-2/3 flex items-center justify-center font-bold tracking-widest py-3">
+                                <div className="w-2/3 flex items-center justify-center font-bold tracking-widest py-3 relative">
                                     {isOff ? (
-                                        <span className="text-[#777777] font-normal">{shift.text}</span>
+                                        <span className="text-[#999999] font-normal">{shift.text}</span>
                                     ) : (
-                                        <Link href={`/reserve/${resolvedCastId}?date=${shift.dateStr}`} onClick={handleReserveClick} className="text-black hover:text-[#777777] transition-colors underline underline-offset-4 decoration-[#E5E5E5]">
-                                            {shift.text}
+                                        <Link href={`/reserve/${resolvedCastId}?date=${shift.dateStr}`} onClick={handleReserveClick} className="flex items-center justify-center w-full h-full text-black hover:text-[#FF5C8A] transition-colors group">
+                                            <span>{shift.text}</span>
+                                            <div className="absolute right-4 text-[#CCCCCC] group-hover:text-[#FF5C8A] transition-colors group-hover:translate-x-0.5 transform duration-200">
+                                                <ChevronRight size={14} className="stroke-[2]" />
+                                            </div>
                                         </Link>
                                     )}
                                 </div>
@@ -2208,7 +2261,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
 
       {/* Tab Content for Customers */}
       {isCustomerProfile && (
-      <div className="pb-12 bg-white min-h-[300px]">
+      <div className="pb-12 bg-white min-h-screen">
         {isTabLoading ? (
             <div className="flex flex-col items-center justify-center py-32">
                 <div className="w-8 h-8 border-[3px] border-[#E5E5E5] border-t-black rounded-full animate-spin"></div>
@@ -2216,7 +2269,7 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
         ) : activeTab === 'timeline' ? (
             posts.length > 0 ? (
                 posts.map(post => (
-                  <PostCard key={post.id} {...post} onLikeToggle={handlePostLikeToggle} />
+                  <PostCard key={post.id} {...post} onLikeToggle={handlePostLikeToggle} variant="timeline" />
                 ))
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-[#777777]">
@@ -2499,37 +2552,44 @@ export default function CastProfilePage({ params }: { params: Promise<{ id: stri
                     <div className="flex justify-center py-20">
                       <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
                     </div>
-                 ) : followersList.length > 0 ? (
-                    <div className="space-y-[1px] bg-[#E5E5E5] -mx-4 border-y border-[#E5E5E5]">
-                       {followersList.map((follower) => {
-                           const isLiked = likedFollowerIds.has(follower.follower_id);
-                           return (
-                               <Link 
-                                  href={`/cast/${follower.follower_id}`}
-                                  key={follower.follower_id}
-                                  onClick={() => setShowFollowersModal(false)}
-                                  className="bg-white p-4 flex items-center gap-4 hover:bg-[#FCFCFC] transition-colors"
-                               >
-                                  <div className="shrink-0 w-12 h-12 bg-[#F9F9F9] overflow-hidden border border-[#E5E5E5]">
-                                      <img 
-                                          src={follower.sns_profiles?.avatar_url || "/images/no-photo.jpg"} 
-                                          alt="Avatar" 
-                                          className="w-full h-full object-cover"
-                                      />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-sm tracking-widest text-black truncate mb-1">
-                                           <span className="flex items-center gap-1">
-                                             {follower.sns_profiles?.name || "名称未設定"}
-                                             {follower.sns_profiles?.is_vip && (
-                                                <img src="/images/vip-crown.png" alt="VIP" className="h-3.5 object-contain ml-0.5" />
-                                             )}
-                                           </span>
-                                      </div>
-                                  </div>
-                               </Link>
-                           );
-                       })}
+                 ) : followersList.length > 0 || hiddenFollowersCount > 0 ? (
+                    <div className="flex flex-col">
+                       <div className="space-y-[1px] bg-[#E5E5E5] -mx-4 border-y border-[#E5E5E5]">
+                          {followersList.map((follower) => {
+                              const isLiked = likedFollowerIds.has(follower.follower_id);
+                              return (
+                                  <Link 
+                                     href={`/cast/${follower.follower_id}`}
+                                     key={follower.follower_id}
+                                     onClick={() => setShowFollowersModal(false)}
+                                     className="bg-white p-4 flex items-center gap-4 hover:bg-[#FCFCFC] transition-colors"
+                                  >
+                                     <div className="shrink-0 w-12 h-12 bg-[#F9F9F9] overflow-hidden border border-[#E5E5E5]">
+                                         <img 
+                                             src={follower.sns_profiles?.avatar_url || "/images/no-photo.jpg"} 
+                                             alt="Avatar" 
+                                             className="w-full h-full object-cover"
+                                         />
+                                     </div>
+                                     <div className="flex-1 min-w-0">
+                                         <div className="font-bold text-sm tracking-widest text-black truncate mb-1">
+                                              <span className="flex items-center gap-1">
+                                                {follower.sns_profiles?.name || "名称未設定"}
+                                                {follower.sns_profiles?.is_vip && (
+                                                   <img src="/images/vip-crown.png" alt="VIP" className="h-3.5 object-contain ml-0.5" />
+                                                )}
+                                              </span>
+                                         </div>
+                                     </div>
+                                  </Link>
+                              );
+                          })}
+                       </div>
+                       {hiddenFollowersCount > 0 && (
+                           <div className="py-8 text-center text-[10px] text-[#999999] tracking-widest">
+                               他 {hiddenFollowersCount} 名のフォロワーは<br />プライバシー設定により非公開です
+                           </div>
+                       )}
                     </div>
                  ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-[#777777]">
